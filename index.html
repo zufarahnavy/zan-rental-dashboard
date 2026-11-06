@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="id" data-tema="terang">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f5f7">
+<meta name="description" content="Dashboard operasional Zan Rental Motor Jember — order, armada, pelanggan, keuangan, dan notifikasi WhatsApp dalam satu tempat.">
+<meta name="robots" content="noindex">
+<title>ZAN Rental Operasional</title>
+
+<link rel="preload" href="fonts/poppins-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/poppins-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/style.css?v=1.0.0">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23FFE600'/%3E%3Ctext x='16' y='23' font-family='Poppins,Arial' font-size='20' font-weight='800' text-anchor='middle' fill='%230B0B0F'%3EZ%3C/text%3E%3C/svg%3E">
+
+<style>
+  /* Tampilan sementara sebelum JavaScript selesai dimuat */
+  #memuat { position: fixed; inset: 0; display: grid; place-items: center; background: var(--kanvas, #f5f5f7); z-index: 300; }
+  #memuat .kotak-muat { text-align: center; }
+  #memuat .logo { width: 62px; height: 62px; border-radius: 19px; background: #FFE600; color: #0B0B0F;
+    display: grid; place-items: center; font: 800 29px Poppins, sans-serif; margin: 0 auto 14px;
+    box-shadow: 0 8px 24px rgba(255, 230, 0, .4); animation: denyutLogo 1.5s ease-in-out infinite; }
+  #memuat .t { font: 600 13px Poppins, sans-serif; color: #47464b; }
+  @keyframes denyutLogo { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+  html[data-tema="gelap"] #memuat { background: #14101C; }
+  html[data-tema="gelap"] #memuat .t { color: #b9b3c6; }
+</style>
+</head>
+<body>
+
+<div id="memuat"><div class="kotak-muat">
+  <div class="logo">Z</div>
+  <div class="t">Menyiapkan dashboard…</div>
+</div></div>
+
+<div id="app"></div>
+
+<noscript>
+  <div style="padding:30px;font-family:system-ui,sans-serif;text-align:center">
+    <h1>JavaScript dibutuhkan</h1>
+    <p>Aplikasi ZAN Rental Operasional memerlukan JavaScript. Aktifkan JavaScript di peramban Anda lalu muat ulang halaman.</p>
+  </div>
+</noscript>
+
+<!-- Pembuat QR kwitansi & struk — dipaketkan lokal (MIT) agar tetap jalan tanpa internet -->
+<script defer src="js/vendor-qrcode.js?v=1.0.0"></script>
+
+<script defer src="js/config.js?v=1.0.0"></script>
+<script defer src="js/core.js?v=1.0.0"></script>
+<script defer src="js/ui.js?v=1.0.0"></script>
+<script defer src="js/struk.js?v=1.0.0"></script>
+<script defer src="js/pages.js?v=1.0.0"></script>
+<script defer src="js/pages2.js?v=1.0.0"></script>
+<script defer src="js/app.js?v=1.0.0"></script>
+
+<script>
+  window.addEventListener('load', function () {
+    var m = document.getElementById('memuat');
+    if (!m) return;
+    m.style.transition = 'opacity .3s ease';
+    m.style.opacity = '0';
+    setTimeout(function () { if (m.parentNode) m.parentNode.removeChild(m); }, 320);
+  });
+</script>
+</body>
+</html>
