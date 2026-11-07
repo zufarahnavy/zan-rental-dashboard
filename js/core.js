@@ -416,6 +416,8 @@
     perisai: '<path d="M12 3 5 6v6c0 4.2 3 7.8 7 9 4-1.2 7-4.8 7-9V6z"/><path d="m9.2 12 2 2 3.6-3.8"/>',
     kirim: '<path d="M21 3 3 10.5l7 2.5 2.5 7z"/><path d="m10 13 11-10"/>',
     salin: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+    tautan: '<path d="M10 13a5 5 0 0 0 7.07 0l3-3A5 5 0 0 0 13 3l-1.5 1.5"/>' +
+      '<path d="M14 11a5 5 0 0 0-7.07 0l-3 3A5 5 0 0 0 11 21l1.5-1.5"/>',
     qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14h2v2h-2zM14 19h2v2h-2zM18 18h3v3h-3z" fill="currentColor" stroke="none"/>',
     import: '<path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><rect x="3" y="16" width="18" height="5" rx="2"/>',
     hotel: '<path d="M3 20V8l9-5 9 5v12"/><path d="M9 20v-6h6v6"/>',
@@ -599,6 +601,20 @@
   };
 
   /* ---------------- Ekspor ---------------- */
+  /**
+   * Daftar metode pembayaran yang diatur pemilik di Pengaturan.
+   * Dipakai bersama oleh form order dan form catat transaksi supaya
+   * keduanya tidak pernah menampilkan pilihan yang berbeda.
+   */
+  function metodeBayarOpsi() {
+    try {
+      const a = JSON.parse((global.App && global.App.set ? global.App.set('METODE_BAYAR_OPSI', '[]') : '[]') || '[]');
+      const bersih = (a || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
+      if (bersih.length) return bersih.slice(0, 10);
+    } catch (e) {}
+    return ['Tunai', 'Transfer BCA', 'QRIS'];
+  }
+
   global.ZAN = {
     $: $, $$: $$, esc: esc, num: num, rp: rp, rpSingkat: rpSingkat, ribuan: ribuan,
     hariIni: hariIni, jamIni: jamIni, tglId: tglId, tglPendek: tglPendek, tglPanjang: tglPanjang,
@@ -609,5 +625,6 @@
     Ikon: Ikon, fotoUnit: fotoUnit, elDari: elDari, campur: campur,
     qrDataUrl: qrDataUrl, qrPngDataUrl: qrPngDataUrl, Aktivitas: Aktivitas, siapDeploy: siapDeploy
   };
+  global.ZAN.metodeBayarOpsi = metodeBayarOpsi;
   global.Perf = Perf;   // mudah dipanggil dari console: Perf.table()
 })(window);

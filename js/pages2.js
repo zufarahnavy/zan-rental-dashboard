@@ -13,6 +13,26 @@
   /* ================================================================
    * KEUANGAN
    * ================================================================ */
+  /* Satu baris metode pembayaran: nama + naik/turun + hapus.
+     Berada di lingkup modul karena dipakai oleh DUA fungsi berbeda —
+     perakit HTML halaman dan penggambar ulang saat daftar diubah. */
+  function bayarBarisHtml(arr) {
+    if (!arr.length) return '<div class="t-sm t-var" style="padding:10px 2px">Belum ada metode.</div>';
+    return arr.map(function (nama, i) {
+      return '<div class="lengkap-baris on">' +
+        '<input class="inp lengkap-nama-inp" data-bnama="' + i + '" value="' + esc(nama) + '" maxlength="30">' +
+        '<div class="stepper">' +
+          '<button type="button" class="stepper-b" data-bnaik="' + i + '" aria-label="Naikkan urutan"' +
+            (i === 0 ? ' disabled' : '') + '>↑</button>' +
+          '<button type="button" class="stepper-b" data-bturun="' + i + '" aria-label="Turunkan urutan"' +
+            (i === arr.length - 1 ? ' disabled' : '') + '>↓</button>' +
+        '</div>' +
+        '<button type="button" class="ikon-btn ikon-btn-kecil" data-bhapus="' + i + '" aria-label="Hapus">' +
+          Z.Ikon('sampah', 16) + '</button>' +
+      '</div>';
+    }).join('');
+  }
+
   const KATEGORI_MASUK = ['Sewa Motor', 'DP / Booking', 'Denda Keterlambatan', 'Penjualan Aset', 'Lainnya'];
   const KATEGORI_KELUAR = ['Servis & Sparepart', 'BBM & Operasional', 'Cuci & Perawatan', 'Pajak & Administrasi',
                            'Promosi', 'Gaji & Upah', 'Sewa Tempat', 'Lain-lain'];
@@ -182,8 +202,8 @@
             '</select></div>' +
             '<div class="field"><label>Tanggal</label><input class="inp" type="date" data-k="tanggal" value="' +
             esc(t ? t.tanggal : Z.hariIni()) + '"></div></div>' +
-          '<div class="field"><label>Metode / rekening</label><div class="pilih-grid" style="grid-template-columns:repeat(3,1fr)">' +
-            ['Tunai', 'Transfer BCA', 'QRIS'].map(function (m) {
+          '<div class="field"><label>Metode / rekening</label><div class="pilih-grid">' +
+            Z.metodeBayarOpsi().map(function (m) {
               return '<button class="pilih' + ((t ? t.metode : 'Tunai') === m ? ' on' : '') + '" data-metode="' + m +
                 '"><span class="j" style="font-size:11.5px">' + m + '</span></button>'; }).join('') + '</div></div>' +
           '<div class="field"><label>Kaitkan unit motor (opsional)</label><select class="sel" data-k="unit">' +
@@ -797,7 +817,10 @@
       '<input class="inp" id="tplSub" value="' + esc(m.subjek) + '"></div>' +
       '<div class="field"><label>Isi pesan</label>' +
       '<textarea class="ta" id="tplPesan" rows="9">' + esc(m.pesan) + '</textarea>' +
-      '<div class="bantu">Variabel tersedia: {nama} {usaha} {unit} {plat} {order} {mulai} {kembali} {jam} {durasi} {total} {sisa} {denda} {hari}</div></div>';
+      '<div class="bantu">Variabel tersedia: {nama} {usaha} {unit} {plat} {order} {mulai} {kembali} {jam} ' +
+      '{durasi} {total} {sisa} {denda} {hari} {perlengkapan} {kwitansi}<br>' +
+      '<b>{kwitansi}</b> otomatis menjadi tautan kwitansi &amp; tanda terima order tersebut — ' +
+      'penyewa bisa membukanya tanpa login. Kosong sendiri bila URL aplikasi belum diisi.</div></div>';
     const wrap = Z.Sheet.buka({ judul: m.label, ikon: 'wa', isi: isi,
       aksi: '<button class="btn btn-netral" data-reset>Kembalikan bawaan</button>' +
             '<button class="btn btn-utama" data-ok>Terapkan</button>' });
@@ -890,7 +913,8 @@
         f('NAMA_USAHA', 'Nama usaha') + f('SLOGAN', 'Slogan') + f('ALAMAT', 'Alamat') +
         f('WA_PEMILIK', 'Nomor WA pemilik', { tipe: 'tel', bantu: 'Penerima pengingat harian.' }) +
         f('APP_URL', 'Alamat aplikasi (GitHub Pages)', { ph: 'https://nama.github.io/zan-rental-dashboard/',
-          bantu: 'Dipakai untuk tautan verifikasi pada QR kwitansi.' }) +
+          bantu: 'Dipakai untuk QR kwitansi dan tautan kwitansi {kwitansi} di pesan WhatsApp. ' +
+            'Selama kosong, tautan itu tidak ikut terkirim.' }) +
         '</div></section>';
 
       html += '<section class="kartu"><h3 class="t-judul">Tarif & Kebijakan</h3><div style="margin-top:12px">' +
@@ -964,6 +988,17 @@
         '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" id="setLengkapTambah">' +
           Z.Ikon('plus', 15) + 'Tambah jenis perlengkapan</button></section>';
 
+      /* ---------- Metode pembayaran ---------- */
+      let bayar = [];
+      try { bayar = JSON.parse(s.METODE_BAYAR_OPSI || '[]') || []; } catch (e) { bayar = []; }
+      if (!bayar.length) bayar = ['Tunai', 'Transfer BCA', 'QRIS'];
+      html += '<section class="kartu"><h3 class="t-judul">Metode Pembayaran</h3>' +
+        '<div class="t-sm t-var" style="margin-top:4px">Pilihan yang muncul di form order dan catat transaksi. ' +
+        'Urutannya di sini menentukan urutan tombolnya.</div>' +
+        '<div id="setBayar" class="lengkap-daftar">' + bayarBarisHtml(bayar) + '</div>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" id="setBayarTambah">' +
+          Z.Ikon('plus', 15) + 'Tambah metode pembayaran</button></section>';
+
       /* ---------- Template kwitansi ---------- */
       let kw = {};
       try { kw = JSON.parse(s.KWITANSI_OPSI || '{}') || {}; } catch (e) { kw = {}; }
@@ -988,6 +1023,17 @@
         kwSw('catatan', 'Catatan order', 'Tampilkan catatan kondisi unit') +
         kwSw('tandaTangan', 'Kolom tanda tangan', 'Ruang tanda tangan penyewa & petugas') +
         kwSw('warna', 'Cetak berwarna', 'Matikan untuk hemat tinta printer') +
+        '<div class="field"><label>Judul dokumen</label>' +
+          '<input class="inp" data-kwteks="judul" maxlength="60" value="' + esc(kw.judul || '') + '" ' +
+          'placeholder="KWITANSI SEWA MOTOR"></div>' +
+        '<div class="field"><label>Kalimat pembuka</label>' +
+          '<input class="inp" data-kwteks="pembuka" maxlength="160" value="' + esc(kw.pembuka || '') + '" ' +
+          'placeholder="Telah diterima pembayaran sewa kendaraan dengan rincian berikut."></div>' +
+        '<div class="field"><label>Syarat & ketentuan</label>' +
+          '<textarea class="inp" data-kwteks="syarat" rows="4" maxlength="600" ' +
+          'placeholder="Satu baris satu poin. Contoh:\nKerusakan di luar pemakaian wajar menjadi tanggung jawab penyewa.">' +
+          esc(kw.syarat || '') + '</textarea>' +
+          '<div class="bantu">Satu baris akan dicetak sebagai satu poin bernomor.</div></div>' +
         '<div class="field" style="margin-bottom:0"><label>Kalimat penutup</label>' +
           '<input class="inp" data-kwteks="kakiTeks" maxlength="120" value="' + esc(kw.kakiTeks || '') + '" ' +
           'placeholder="Terima kasih telah menyewa di ZAN Rental."></div>' +
@@ -1163,6 +1209,59 @@
           });
       });
 
+      /* ---------- Daftar metode pembayaran ---------- */
+      let bayar = [];
+      try { bayar = JSON.parse((D().pengaturan || {}).METODE_BAYAR_OPSI || '[]') || []; } catch (e) { bayar = []; }
+      if (!bayar.length) bayar = ['Tunai', 'Transfer BCA', 'QRIS'];
+      function gambarBayar() {
+        const wadah = Z.$('#setBayar', root);
+        if (!wadah) return;
+        wadah.innerHTML = bayarBarisHtml(bayar);
+        ikatBayar();
+      }
+      function ikatBayar() {
+        Z.$$('[data-bnama]', root).forEach(function (i) {
+          i.addEventListener('input', function () { bayar[Z.num(i.getAttribute('data-bnama'))] = i.value; });
+        });
+        Z.$$('[data-bnaik]', root).forEach(function (b2) {
+          b2.addEventListener('click', function () {
+            const n = Z.num(b2.getAttribute('data-bnaik'));
+            if (n <= 0) return;
+            const t = bayar[n - 1]; bayar[n - 1] = bayar[n]; bayar[n] = t;
+            gambarBayar();
+          });
+        });
+        Z.$$('[data-bturun]', root).forEach(function (b2) {
+          b2.addEventListener('click', function () {
+            const n = Z.num(b2.getAttribute('data-bturun'));
+            if (n >= bayar.length - 1) return;
+            const t = bayar[n + 1]; bayar[n + 1] = bayar[n]; bayar[n] = t;
+            gambarBayar();
+          });
+        });
+        Z.$$('[data-bhapus]', root).forEach(function (b2) {
+          b2.addEventListener('click', function () {
+            if (bayar.length <= 1) return Z.toast('Minimal satu metode pembayaran harus ada.', 'err');
+            bayar.splice(Z.num(b2.getAttribute('data-bhapus')), 1);
+            gambarBayar();
+          });
+        });
+      }
+      ikatBayar();
+      const tb = Z.$('#setBayarTambah', root);
+      if (tb) tb.addEventListener('click', function () {
+        Z.tanya({ judul: 'Tambah metode pembayaran', label: 'Nama metode', placeholder: 'Contoh: Transfer BRI', maks: 30 })
+          .then(function (nama) {
+            nama = String(nama || '').trim();
+            if (!nama) return;
+            if (bayar.some(function (x) { return String(x).toLowerCase() === nama.toLowerCase(); }))
+              return Z.toast('“' + nama + '” sudah ada.', 'err');
+            if (bayar.length >= 10) return Z.toast('Maksimal 10 metode pembayaran.', 'err');
+            bayar.push(nama);
+            gambarBayar();
+          });
+      });
+
       /* ---------- Template kwitansi ---------- */
       let kop = null;
       Z.$$('[data-kop]', root).forEach(function (b) {
@@ -1191,10 +1290,12 @@
         nilai.PERLENGKAPAN_OPSI = JSON.stringify(
           lengkap.map(function (o) { return { n: String(o.n || '').trim(), j: Z.num(o.j) || 1 }; })
                  .filter(function (o) { return o.n; }));
+        nilai.METODE_BAYAR_OPSI = JSON.stringify(
+          bayar.map(function (x) { return String(x || '').trim(); })
+               .filter(function (x, i, arr) { return x && arr.indexOf(x) === i; }));
         const kw = { kop: kop || 'penuh' };
         Z.$$('[data-kw]', root).forEach(function (i) { kw[i.getAttribute('data-kw')] = i.checked; });
-        const kt = Z.$('[data-kwteks="kakiTeks"]', root);
-        kw.kakiTeks = kt ? kt.value : '';
+        Z.$$('[data-kwteks]', root).forEach(function (i) { kw[i.getAttribute('data-kwteks')] = i.value; });
         nilai.KWITANSI_OPSI = JSON.stringify(kw);
 
         sp.disabled = true;
@@ -1552,7 +1653,7 @@
         '<div style="display:flex;align-items:center;gap:10px;margin-top:6px">' +
           '<div style="width:74px;flex:none;border-radius:10px;overflow:hidden">' + Z.fotoUnit(u.foto, { tinggi: 52, alt: u.nama }) + '</div>' +
           '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12.5px">' + esc(u.nama || '-') + '</div>' +
-          '<div style="font-size:10.5px;color:#555">' + esc(u.tahun || '') + ' • ' + esc(u.fasilitas || '') + '</div></div>' +
+          '<div style="font-size:10.5px;color:#555">' + esc(u.tahun || '') + ' • ' + esc(u.tipe || '') + '</div></div>' +
           '<span class="plat" style="flex:none">' + esc(u.plat || '-') + '</span></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">' +
           kotakKwt('Ambil unit', Z.tglId(o.mulai), o.jamMulai + ' WIB' + (o.antar ? ' • diantar' : '')) +
@@ -1584,6 +1685,9 @@
         (o.statusBayar === 'Lunas' ? '<div class="kwt-cap">LUNAS</div>' : '') +
       '</div></div>' +
 
+      /* Bukti serah terima & pengembalian */
+      blokBukti(o) +
+
       /* Aksi lanjutan */
       '<div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">' +
         (s === 'Berjalan' || s === 'Terlambat'
@@ -1591,9 +1695,16 @@
             (denda ? ' (denda ' + Z.rp(denda) + ')' : '') + '</button>' +
             '<div class="btn-grid">' +
             '<button class="btn btn-netral" data-k="perpanjang">' + Z.Ikon('jam', 16) + 'Perpanjang</button>' +
-            '<button class="btn btn-netral" data-k="bayar">' + Z.Ikon('dompet', 16) + 'Catat Bayar</button></div>' : '') +
+            '<button class="btn btn-netral" data-k="bayar">' + Z.Ikon('dompet', 16) + 'Catat Bayar</button></div>' +
+            '<button class="btn btn-netral btn-blok" data-k="fotoKembali">' + Z.Ikon('kamera', 16) +
+            'Foto Kondisi Saat Kembali</button>' : '') +
         (s === 'Booking'
           ? '<button class="btn btn-utama btn-blok" data-k="mulai">' + Z.Ikon('kunci', 17) + 'Serah Terima & Mulai Sewa</button>' : '') +
+        (s === 'Selesai'
+          ? '<button class="btn btn-netral btn-blok" data-k="fotoKembali">' + Z.Ikon('kamera', 16) +
+            'Lengkapi Foto Pengembalian</button>' : '') +
+        '<button class="btn btn-netral btn-blok" data-k="tautan">' + Z.Ikon('tautan', 16) +
+        'Salin Tautan Kwitansi</button>' +
         '<div class="btn-grid">' +
           '<button class="btn btn-netral" data-k="ubah">' + Z.Ikon('pensil', 16) + 'Ubah Order</button>' +
           (s !== 'Selesai' && s !== 'Batal'
@@ -1629,13 +1740,12 @@
         if (k === 'selesai') { Z.Sheet.tutup(); setTimeout(function () { formSelesai(o); }, 240); return; }
         if (k === 'perpanjang') { Z.Sheet.tutup(); setTimeout(function () { formPerpanjang(o); }, 240); return; }
         if (k === 'bayar') { Z.Sheet.tutup(); setTimeout(function () { formBayar(o); }, 240); return; }
-        if (k === 'mulai') {
-          const r = await global.App.kirim('order.simpan', { id: o.id, pelanggan: o.pelanggan, unit: o.unit,
-            mulai: o.mulai, jamMulai: o.jamMulai, kembali: o.kembali, jamKembali: o.jamKembali,
-            hargaHari: o.durasi ? Math.round(o.sewa / o.durasi) : u.harga, antar: o.antar, alamatAntar: o.alamatAntar,
-            biayaAntar: o.biayaAntar, diskon: o.diskon, deposit: o.deposit, dibayar: o.dibayar,
-            metode: o.metode, catatan: o.catatan, status: 'Berjalan' });
-          if (r.success) { Z.Sheet.tutup(); await global.App.muatUlang(true); }
+        if (k === 'mulai')  { Z.Sheet.tutup(); setTimeout(function () { formFotoSerah(o, 'serah'); }, 240); return; }
+        if (k === 'fotoKembali') { Z.Sheet.tutup(); setTimeout(function () { formFotoSerah(o, 'kembali'); }, 240); return; }
+        if (k === 'tautan') {
+          const tautan = urlVerif(o.kode);
+          try { await navigator.clipboard.writeText(tautan); Z.toast('Tautan kwitansi disalin. Tempel di pesan WA.'); }
+          catch (e) { Z.tanya({ judul: 'Tautan kwitansi', label: 'Salin tautan ini', nilai: tautan, maks: 300 }); }
           return;
         }
         if (k === 'ubah') { Z.Sheet.tutup(); P.FormOrder.data = null; global.App.ke('order-baru', { id: o.id }); return; }
@@ -1651,6 +1761,56 @@
       });
     });
   };
+
+  /** Nama ramah untuk satu sudut foto; kunci tak dikenal dipakai apa adanya. */
+  function labelSudut(k) {
+    const sd = SUDUT.filter(function (x) { return x.k === k; })[0];
+    return sd ? sd.l : String(k || '').replace(/^./, function (c) { return c.toUpperCase(); });
+  }
+
+  /**
+   * Satu thumbnail bukti foto. Memakai <img> sungguhan, bukan background-image,
+   * supaya ada teks alternatif dan supaya foto yang gagal dimuat tetap terlihat
+   * sebagai kotak berlabel — bukan kotak kosong tanpa penjelasan.
+   */
+  function imgBukti(url, label) {
+    return '<a href="' + esc(url) + '" target="_blank" rel="noopener" title="' + esc(label) + '">' +
+      '<img src="' + esc(url) + '" alt="Foto ' + esc(label) + '" loading="lazy" ' +
+      'onerror="this.closest(\'a\').classList.add(\'gagal\')">' +
+      '<span>' + esc(label) + '</span></a>';
+  }
+
+  /** Galeri bukti foto yang sudah tersimpan di satu order (serah terima + pengembalian). */
+  function blokBukti(o) {
+    const bagian = [
+      { rec: o.serah, judul: 'Bukti Serah Terima', ikon: 'kunci' },
+      { rec: o.pengembalian, judul: 'Bukti Pengembalian', ikon: 'check' }
+    ].filter(function (b) { return b.rec && b.rec.foto && Object.keys(b.rec.foto).length; });
+    if (!bagian.length) return '';
+
+    return bagian.map(function (b) {
+      const f = b.rec.foto;
+      const meta = [
+        b.rec.odo ? 'Odometer ' + Z.ribuan(b.rec.odo) + ' km' : '',
+        b.rec.bbm ? 'BBM ' + esc(b.rec.bbm) : '',
+        b.rec.at ? Z.tglId(String(b.rec.at).slice(0, 10)) : ''
+      ].filter(Boolean).join(' • ');
+
+      return '<div class="kartu kartu-rapat" style="margin-top:12px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+        '<h3 class="t-judul" style="font-size:14px;display:flex;align-items:center;gap:7px">' +
+        Z.Ikon(b.ikon, 16) + esc(b.judul) + '</h3>' +
+        '<span class="badge badge-ok">' + Object.keys(f).length + ' foto</span></div>' +
+        (meta ? '<div class="t-sm t-var" style="margin:6px 0 9px">' + meta + '</div>' : '<div style="height:9px"></div>') +
+        '<div class="foto-bukti">' +
+          SUDUT.filter(function (sd) { return f[sd.k]; }).map(function (sd) {
+            return imgBukti(f[sd.k], sd.l);
+          }).join('') +
+        '</div>' +
+        (b.rec.catatan ? '<div class="t-sm t-var" style="margin-top:8px">Catatan: ' + esc(b.rec.catatan) + '</div>' : '') +
+        '</div>';
+    }).join('');
+  }
 
   function kotakKwt(label, nilai, sub) {
     return '<div style="background:#f7f7f9;border-radius:11px;padding:9px 11px">' +
@@ -1676,7 +1836,8 @@
       nama: c.nama, usaha: usaha, unit: u.nama, plat: u.plat, order: o.id,
       mulai: Z.tglId(o.mulai), kembali: Z.tglId(o.kembali), jam: o.jamKembali, durasi: o.durasi,
       total: Z.rp(o.total), sisa: Z.rp(Math.max(0, o.total - o.dibayar)),
-      denda: Z.rp(H.dendaBerjalan(o)), hari: H.hariTelat(o), link: urlVerif(o.kode)
+      denda: Z.rp(H.dendaBerjalan(o)), hari: H.hariTelat(o), link: urlVerif(o.kode),
+      kwitansi: o.kode ? '\n\n📄 Kwitansi & tanda terima:\n' + urlVerif(o.kode) : ''
     };
     let tpl = cfg && cfg.matriks && cfg.matriks[tipe] ? cfg.matriks[tipe].pesan : TPL_CADANGAN[tipe];
     const pesan = String(tpl || '').replace(/\{(\w+)\}/g, function (m, k) {
@@ -1690,13 +1851,13 @@
 
   const TPL_CADANGAN = {
     ORDER_BARU: 'Halo {nama}! 🏍️\n\nTerima kasih sudah menyewa di *{usaha}*.\n\nNo. Order: *{order}*\nUnit: {unit} ({plat})\n' +
-      'Mulai: {mulai}\nKembali: {kembali} pukul {jam}\nTotal: *{total}*\nSisa bayar: {sisa}\n\nHati-hati di jalan! 🙏',
+      'Mulai: {mulai}\nKembali: {kembali} pukul {jam}\nTotal: *{total}*\nSisa bayar: {sisa}\n\nHati-hati di jalan! 🙏{kwitansi}',
     INGAT_KEMBALI: 'Halo {nama} 👋\n\nPengingat: *{unit}* ({plat}) dijadwalkan kembali *hari ini* pukul *{jam}*.\n' +
-      'Order: {order}\n\nMohon konfirmasi bila ingin memperpanjang. Terima kasih 🙏\n— {usaha}',
+      'Order: {order}\n\nMohon konfirmasi bila ingin memperpanjang. Terima kasih 🙏{kwitansi}\n— {usaha}',
     TAGIH_TELAT: 'Halo {nama},\n\nUnit *{unit}* (order {order}) sudah melewati jatuh tempo *{hari} hari*.\n' +
       'Denda berjalan: *{denda}*\n\nMohon segera dikembalikan atau hubungi kami. Terima kasih 🙏\n— {usaha}',
     ORDER_SELESAI: 'Terima kasih {nama}! ✅\n\nUnit *{unit}* sudah kami terima kembali.\nTotal transaksi: *{total}*\n\n' +
-      'Semoga berkenan menyewa lagi. Sampai jumpa! 🏍️\n— {usaha}'
+      'Semoga berkenan menyewa lagi. Sampai jumpa! 🏍️{kwitansi}\n— {usaha}'
   };
 
   function pratinjauStruk(ctx) {
@@ -1862,6 +2023,152 @@
   /* ================================================================
    * HALAMAN PUBLIK: VERIFIKASI KWITANSI
    * ================================================================ */
+  /* ================================================================
+   *  FORM FOTO SERAH TERIMA / PENGEMBALIAN
+   *  Bukti kondisi unit saat berpindah tangan. Foto dikompres di
+   *  peramban sebelum dikirim supaya hemat kuota dan cepat di sinyal
+   *  lemah — serah terima sering terjadi di pinggir jalan.
+   * ================================================================ */
+  const SUDUT = [
+    { k: 'penyewa',  l: 'Penyewa + unit', wajib: true,  bantu: 'Wajah penyewa terlihat jelas bersama motornya' },
+    { k: 'depan',    l: 'Tampak depan',   wajib: false, bantu: '' },
+    { k: 'belakang', l: 'Tampak belakang',wajib: false, bantu: '' },
+    { k: 'kiri',     l: 'Sisi kiri',      wajib: false, bantu: '' },
+    { k: 'kanan',    l: 'Sisi kanan',     wajib: false, bantu: '' },
+    { k: 'odometer', l: 'Odometer',       wajib: false, bantu: 'Untuk bukti jarak tempuh' }
+  ];
+
+  /**
+   * Perkecil foto di peramban sebelum dikirim.
+   * Kamera HP menghasilkan 3–8 MB per foto; enam foto sekaligus akan
+   * melewati batas unggah dan sangat lambat di jaringan seluler.
+   */
+  function kecilkanFoto(file, maksSisi, mutu) {
+    return new Promise(function (selesai, gagal) {
+      const fr = new FileReader();
+      fr.onerror = function () { gagal(new Error('Gagal membaca berkas.')); };
+      fr.onload = function () {
+        const img = new Image();
+        img.onerror = function () { gagal(new Error('Berkas bukan gambar yang bisa dibaca.')); };
+        img.onload = function () {
+          const sisi = maksSisi || 1280;
+          let w = img.width, h = img.height;
+          if (w > sisi || h > sisi) {
+            if (w >= h) { h = Math.round(h * sisi / w); w = sisi; }
+            else { w = Math.round(w * sisi / h); h = sisi; }
+          }
+          try {
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const g = c.getContext('2d');
+            g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+            g.drawImage(img, 0, 0, w, h);
+            selesai(c.toDataURL('image/jpeg', mutu || 0.72));
+          } catch (e) { gagal(e); }
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  /** @param mode 'serah' (unit diserahkan) atau 'kembali' (unit diterima lagi) */
+  function formFotoSerah(o, mode) {
+    const u = unit(o.unit), c = pel(o.pelanggan);
+    const serah = mode === 'serah';
+    const lama = (serah ? o.serah : o.pengembalian) || {};
+    const fotoLama = lama.foto || {};
+    const terkumpul = {};                       // k → dataURL baru dari sesi ini
+
+    const kotak = SUDUT.map(function (sd) {
+      const ada = fotoLama[sd.k];
+      return '<label class="foto-slot' + (ada ? ' ada' : '') + (sd.wajib ? ' wajib' : '') + '" data-slot="' + sd.k + '">' +
+        '<input type="file" accept="image/*" capture="environment" data-foto="' + sd.k + '" hidden>' +
+        '<div class="foto-pratinjau" data-pra="' + sd.k + '"' +
+          (ada ? ' style="background-image:url(' + esc(ada) + ')"' : '') + '>' +
+          (ada ? '' : Z.Ikon('kamera', 22)) + '</div>' +
+        '<div class="foto-nama">' + esc(sd.l) + (sd.wajib ? ' <b style="color:var(--danger)">*</b>' : '') + '</div>' +
+      '</label>';
+    }).join('');
+
+    const isi =
+      '<div class="kotak" style="display:flex;gap:9px;align-items:center;margin-bottom:12px">' +
+        '<span style="color:var(--ungu)">' + Z.Ikon(serah ? 'kunci' : 'check', 18) + '</span>' +
+        '<div class="t-sm">' + (serah
+          ? 'Foto ini jadi bukti kondisi unit saat diserahkan. Setelah disimpan, order berubah menjadi <b>Berjalan</b>.'
+          : 'Foto kondisi unit saat dikembalikan, untuk dibandingkan dengan foto serah terima.') + '</div></div>' +
+
+      '<div class="t-cap t-var" style="margin-bottom:7px">FOTO KONDISI</div>' +
+      '<div class="foto-grid">' + kotak + '</div>' +
+
+      '<div class="grid2" style="margin-top:13px">' +
+        '<div class="field"><label>Odometer (km)</label>' +
+          '<input class="inp" type="number" id="fsOdo" value="' + (Z.num(lama.odo) || Z.num(u.odo) || '') + '"></div>' +
+        '<div class="field"><label>Sisa BBM</label>' +
+          '<select class="sel" id="fsBbm">' +
+          ['', 'Penuh', '3/4', '1/2', '1/4', 'Hampir habis'].map(function (x) {
+            return '<option value="' + esc(x) + '"' + ((lama.bbm || '') === x ? ' selected' : '') + '>' +
+              (x || '— pilih —') + '</option>'; }).join('') +
+          '</select></div></div>' +
+      '<div class="field" style="margin-bottom:0"><label>Catatan kondisi</label>' +
+        '<textarea class="inp" id="fsCatatan" rows="2" maxlength="300" ' +
+        'placeholder="Contoh: baret halus di spakbor kanan, spion kiri agak longgar">' + esc(lama.catatan || '') + '</textarea></div>';
+
+    const wrap = Z.Sheet.buka({
+      judul: serah ? 'Serah Terima Unit' : 'Foto Pengembalian',
+      sub: o.id + ' • ' + c.nama + ' • ' + u.plat,
+      ikon: 'kamera', isi: isi,
+      aksi: '<button class="btn btn-netral" data-batal>Batal</button>' +
+            '<button class="btn btn-utama" data-simpan>' + Z.Ikon('check', 17) +
+            (serah ? 'Simpan & Mulai Sewa' : 'Simpan Foto') + '</button>'
+    });
+
+    Z.$$('[data-foto]', wrap).forEach(function (inp) {
+      inp.addEventListener('change', async function () {
+        const file = inp.files && inp.files[0];
+        if (!file) return;
+        const k = inp.getAttribute('data-foto');
+        const pra = Z.$('[data-pra="' + k + '"]', wrap);
+        pra.classList.add('memuat');
+        try {
+          const dataUrl = await kecilkanFoto(file, 1280, 0.72);
+          terkumpul[k] = dataUrl;
+          pra.style.backgroundImage = 'url(' + dataUrl + ')';
+          pra.innerHTML = '';
+          pra.closest('.foto-slot').classList.add('ada');
+        } catch (e) {
+          Z.toast('Foto "' + k + '" tidak bisa dibaca.', 'err');
+        }
+        pra.classList.remove('memuat');
+      });
+    });
+
+    const btn = Z.$('[data-simpan]', wrap);
+    btn.addEventListener('click', async function () {
+      if (serah && !terkumpul.penyewa && !fotoLama.penyewa) {
+        Z.toast('Foto penyewa bersama unit wajib diambil.', 'err');
+        const el = Z.$('.foto-slot.wajib', wrap);
+        if (el) { el.classList.add('goyang'); setTimeout(function () { el.classList.remove('goyang'); }, 460); }
+        return;
+      }
+      btn.disabled = true;
+      btn.innerHTML = Z.Ikon('sinkron', 17, 'putar') + 'Mengunggah…';
+      const r = await global.App.kirim(serah ? 'order.serah' : 'order.kembali', {
+        id: o.id, foto: terkumpul,
+        odo: Z.num(Z.$('#fsOdo', wrap).value),
+        bbm: Z.$('#fsBbm', wrap).value,
+        catatan: Z.$('#fsCatatan', wrap).value
+      });
+      btn.disabled = false;
+      btn.innerHTML = Z.Ikon('check', 17) + (serah ? 'Simpan & Mulai Sewa' : 'Simpan Foto');
+      if (r.success) {
+        Z.Sheet.tutup();
+        await global.App.muatUlang(true);
+        setTimeout(function () { Hal.detailOrder(o.id); }, 260);
+      }
+    });
+  }
+
   Hal.verifikasi = {
     judul: 'Verifikasi', publik: true,
     render: function (param) {
@@ -1889,7 +2196,49 @@
         U.baris('Periode', esc(h.periode)) +
         U.baris('Total', '<b>' + esc(h.total) + '</b>') +
         U.baris('Status bayar', U.badgeBayar(h.statusBayar)) +
-        '<div class="t-sm t-var" style="margin-top:12px;line-height:1.6;text-align:center">' +
+        (h.statusOrder ? U.baris('Status sewa', '<b>' + esc(h.statusOrder) + '</b>') : '') +
+        '</section>' +
+
+        /* Linimasa: booking → serah terima → pengembalian → selesai */
+        (Array.isArray(h.linimasa) && h.linimasa.length
+          ? '<section class="kartu"><h3 class="t-judul" style="font-size:15px">Perjalanan Sewa</h3>' +
+            '<div class="t-sm t-var" style="margin-top:3px">Tanda terima tiap tahap, dari pesanan dibuat sampai sewa selesai.</div>' +
+            '<ol class="lini">' + h.linimasa.map(function (t) {
+              const foto = t.foto && typeof t.foto === 'object' ? Object.keys(t.foto) : [];
+              return '<li class="lini-item' + (t.selesai ? ' selesai' : '') + '">' +
+                '<span class="lini-bul">' + (t.selesai ? Z.Ikon('check', 13) : '') + '</span>' +
+                '<div class="lini-isi">' +
+                  '<div class="lini-judul">' + esc(t.judul || '') + '</div>' +
+                  '<div class="lini-waktu">' + esc(t.waktu || '—') + '</div>' +
+                  (t.ket ? '<div class="lini-ket">' + esc(t.ket) + '</div>' : '') +
+                  (foto.length
+                    ? '<div class="foto-bukti" style="margin-top:8px">' + foto.map(function (k) {
+                        return imgBukti(t.foto[k], labelSudut(k));
+                      }).join('') + '</div>'
+                    : '') +
+                '</div></li>';
+            }).join('') + '</ol></section>'
+          : '') +
+
+        /* Rincian biaya */
+        (Array.isArray(h.rincian) && h.rincian.length
+          ? '<section class="kartu"><h3 class="t-judul" style="font-size:15px">Rincian Biaya</h3>' +
+            '<div style="margin-top:8px">' + h.rincian.map(function (r) {
+              // U.baris() meng-escape label tapi tidak nilainya, jadi penebalan
+              // label harus lewat kelas baris, bukan tag <b> di dalam teks.
+              const tebal = /^total$/i.test(r[0]);
+              return U.baris(r[0], tebal ? '<b>' + esc(r[1]) + '</b>' : esc(r[1]),
+                tebal ? 'baris-total' : '');
+            }).join('') + '</div></section>'
+          : '') +
+
+        /* Perlengkapan yang dibawa */
+        (h.perlengkapan
+          ? '<section class="kartu"><h3 class="t-judul" style="font-size:15px">Perlengkapan Dibawa</h3>' +
+            '<div class="t-sm" style="margin-top:7px;line-height:1.7">' + esc(h.perlengkapan) + '</div></section>'
+          : '') +
+
+        '<section class="kartu"><div class="t-sm t-var" style="line-height:1.6;text-align:center">' +
         'Nama penyewa sengaja disamarkan demi privasi.<br>Sidik dokumen: <code style="font-size:10px">' +
         esc((h.hash || '').slice(0, 24) || '-') + '</code></div></section>';
     },

@@ -93,20 +93,24 @@
     const seri = o.seri || [];
     const n = label.length;
     if (!n) return kosong('grafik', 'Belum ada data', 'Data grafik akan tampil setelah ada transaksi.');
-    const W = 320, H = 132, pad = 18, baseline = H - 22;
+    // padKiri menyediakan ruang untuk angka sumbu vertikal.
+    const W = 320, H = 138, padKiri = 42, padKanan = 10, baseline = H - 22, atas = 14;
     let maks = 0;
     seri.forEach(function (s) { s.nilai.forEach(function (v) { if (v > maks) maks = v; }); });
     maks = maks || 1;
-    const slot = (W - pad * 2) / n;
+    const sumbu = sumbuRapi(maks);                // garis bantu pada nilai yang bulat
+    maks = sumbu.puncak;
+    const tinggiPlot = baseline - atas;
+    const slot = (W - padKiri - padKanan) / n;
     const lebarBar = Math.min(seri.length > 1 ? 11 : 20, (slot - 8) / seri.length);
 
     let batang = '';
     for (let i = 0; i < n; i++) {
-      const xSlot = pad + slot * i + slot / 2;
+      const xSlot = padKiri + slot * i + slot / 2;
       const totalLebar = lebarBar * seri.length + (seri.length - 1) * 3;
       for (let s = 0; s < seri.length; s++) {
         const v = Number(seri[s].nilai[i] || 0);
-        const t = Math.max(2, (v / maks) * (baseline - 20));
+        const t = Math.max(v > 0 ? 2 : 0, (v / maks) * tinggiPlot);
         const x = xSlot - totalLebar / 2 + s * (lebarBar + 3);
         const sorot = o.sorot === i;
         batang += '<g class="bar-g" data-i="' + i + '" data-s="' + s + '">' +
@@ -117,21 +121,58 @@
       batang += '<text class="bar-lbl" x="' + xSlot.toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' +
         esc(label[i]) + '</text>';
     }
+    // Garis bantu + angka sumbu vertikal. Tanpa angka, tinggi batang tidak
+    // bisa dibaca sebagai nilai — hanya bisa dibandingkan satu sama lain.
     let grid = '';
-    [0.25, 0.5, 0.75].forEach(function (f) {
-      const y = baseline - (baseline - 20) * f;
-      grid += '<line x1="' + pad + '" x2="' + (W - pad) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) +
-        '" class="grid-line"/>';
-    });
+    for (let g = 0; g <= sumbu.n; g++) {
+      const nilaiGaris = sumbu.jarak * g;
+      const y = baseline - tinggiPlot * (nilaiGaris / maks);
+      if (g > 0) grid += '<line x1="' + padKiri + '" x2="' + (W - padKanan) + '" y1="' + y.toFixed(1) +
+        '" y2="' + y.toFixed(1) + '" class="grid-line"/>';
+      grid += '<text class="axis-lbl" x="' + (padKiri - 6) + '" y="' + (y + 3.2).toFixed(1) +
+        '" text-anchor="end">' + esc(ringkasAngka(nilaiGaris)) + '</text>';
+    }
     const legenda = seri.length > 1 ? '<div class="legenda">' + seri.map(function (s) {
       return '<span class="leg"><i style="background:' + s.warna + '"></i>' + esc(s.nama) + '</span>';
     }).join('') + '</div>' : '';
 
+    // preserveAspectRatio="none" dibuang: dengan tinggi tetap dan lebar 100%,
+    // SVG teregang mendatar sampai ~1,7× di layar lebar sehingga label hari
+    // tampak melar. Sekarang skalanya seragam.
     return '<div class="grafik-wrap">' + legenda +
-      '<svg class="grafik-batang" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="' +
+      '<svg class="grafik-batang" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
       esc(o.judul || 'Grafik batang') + '">' + grid +
-      '<line x1="' + pad + '" x2="' + (W - pad) + '" y1="' + baseline + '" y2="' + baseline + '" class="grid-base"/>' +
+      '<line x1="' + padKiri + '" x2="' + (W - padKanan) + '" y1="' + baseline + '" y2="' + baseline + '" class="grid-base"/>' +
       batang + '</svg></div>';
+  }
+
+  /**
+   * Tentukan JARAK ANTAR GARIS yang bulat (1/2/2,5/5 × 10ⁿ), lalu naikkan
+   * puncak sumbu ke kelipatan terdekat di atas nilai tertinggi.
+   * Membulatkan puncaknya saja tidak cukup: puncak 2,5jt dibagi empat
+   * menghasilkan label 625rb dan 1,9jt yang sulit dibaca sekilas.
+   */
+  function sumbuRapi(maks, targetGaris) {
+    const target = targetGaris || 4;
+    const kasar = maks / target;
+    const pangkat = Math.pow(10, Math.floor(Math.log10(kasar)));
+    const sisa = kasar / pangkat;
+    const jarak = (sisa <= 1 ? 1 : sisa <= 2 ? 2 : sisa <= 2.5 ? 2.5 : sisa <= 5 ? 5 : 10) * pangkat;
+    const puncak = Math.ceil(maks / jarak) * jarak;
+    return { jarak: jarak, puncak: puncak, n: Math.max(1, Math.round(puncak / jarak)) };
+  }
+
+  /** 1250000 → "1,25jt" · 450000 → "450rb" · 0 → "0" (ringkas untuk sumbu). */
+  function ringkasAngka(v) {
+    v = Number(v) || 0;
+    if (v === 0) return '0';
+    if (v >= 1e9) return bersih(v / 1e9) + 'M';
+    if (v >= 1e6) return bersih(v / 1e6) + 'jt';
+    if (v >= 1e3) return bersih(v / 1e3) + 'rb';
+    return String(Math.round(v));
+    function bersih(x) {
+      return (x >= 10 ? Math.round(x) : Math.round(x * 10) / 10).toString().replace('.', ',');
+    }
   }
 
   /* ---------------- Grafik area ---------------- */

@@ -555,10 +555,10 @@
       PELANGGAN_WA: Z.hp08(p.wa),
       UNIT: u.nama || '-',
       PLAT: u.plat || '-',
-      // Perlengkapan yang dicentang pada order ini; kalau order lama belum
-      // punya datanya, pakai fasilitas bawaan unit sebagai cadangan.
-      FASILITAS: ((o.perlengkapan || []).map(function (x) { return (x.j || 1) + ' ' + x.n; }).join(', '))
-        || u.fasilitas || '2 Helm SNI',
+      // HANYA perlengkapan yang dicentang pada order ini. Dulu ada cadangan
+      // ke unit.fasilitas, tapi kolom itu sudah tidak bisa diubah pemilik —
+      // isinya jadi data basi yang diam-diam tercetak di struk.
+      FASILITAS: (o.perlengkapan || []).map(function (x) { return (x.j || 1) + ' ' + x.n; }).join(', '),
       PERLENGKAPAN: ((o.perlengkapan || []).map(function (x) { return (x.j || 1) + ' ' + x.n; }).join(', ')) || '',
       AMBIL: Z.tglId(o.mulai) + ' ' + (o.jamMulai || ''),
       KEMBALI: Z.tglId(o.kembali) + ' ' + (o.jamKembali || ''),

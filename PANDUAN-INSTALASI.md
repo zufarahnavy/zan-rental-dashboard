@@ -371,10 +371,28 @@ seterusnya) beserta jumlah bawaannya. Saat membuat order, Anda tinggal mencentan
 dan mengatur jumlahnya — dan perlengkapan itu **otomatis muncul di kwitansi PDF,
 struk thermal, dan draft pesan WhatsApp**.
 
+### Metode pembayaran
+
+**Pengaturan → Metode Pembayaran.** Tambah, ubah urutan, atau hapus pilihan yang muncul
+sebagai tombol di form order dan di form catat transaksi — misalnya `Tunai`,
+`Transfer BCA`, `QRIS`, `Transfer Mandiri`. Urutan di daftar ini sama dengan urutan
+tombolnya di layar, jadi taruh yang paling sering dipakai di atas.
+
+Pilihan **Lainnya** selalu tersedia di form order dan tidak perlu Anda tambahkan.
+
 ### Template kwitansi
 
 Atur blok mana yang tampil di kwitansi (kop, data penyewa, rincian biaya, perlengkapan,
 QR verifikasi, catatan kaki), judul dokumen, dan ukuran kertas. Ada pratinjau langsung.
+
+Selain memilih blok, Anda juga bisa **menyunting teksnya sendiri**:
+
+| Isian | Dipakai di mana |
+|---|---|
+| **Judul dokumen** | Baris paling atas kwitansi. Kosongkan untuk memakai `KWITANSI SEWA KENDARAAN`. |
+| **Kalimat pembuka** | Satu paragraf miring di bawah kop, misalnya ucapan terima kasih. |
+| **Syarat & ketentuan** | Satu baris = satu poin. Otomatis diberi nomor di kwitansi. |
+| **Catatan kaki** | Baris penutup di bawah QR. |
 
 ### Draft pesan WhatsApp
 
@@ -385,7 +403,79 @@ penagihan denda. Daftar variabel yang bisa dipakai (`{nama}`, `{motor}`, `{tangg
 
 ---
 
-## Bagian G — Menghapus banyak data sekaligus
+## Bagian G — Foto serah terima & tautan kwitansi
+
+### Mengapa harus ada fotonya
+
+Saat motor diserahkan, aplikasi **mewajibkan satu foto penyewa bersama unitnya**.
+Foto itu jadi bukti siapa yang membawa motor dan dalam kondisi apa unit diserahkan —
+berguna kalau nanti ada selisih klaim soal lecet, bensin, atau jarak tempuh.
+
+### Alurnya
+
+1. Buat order seperti biasa. Statusnya **Booking**.
+2. Saat motor benar-benar diserahkan, buka order itu lalu tekan
+   **Serah Terima & Mulai Sewa**.
+3. Muncul form dengan enam kotak foto:
+
+   | Kotak | Wajib? |
+   |---|---|
+   | Penyewa + unit | **Ya** |
+   | Tampak depan, belakang, sisi kiri, sisi kanan, odometer | Tidak |
+
+4. Di HP, mengetuk kotak langsung membuka **kamera belakang**. Di komputer, membuka
+   pemilih berkas.
+5. Isi **odometer** dan **sisa BBM** (odometer sudah terisi otomatis dari data unit —
+   tinggal dikoreksi), lalu **Simpan & Mulai Sewa**.
+6. Status order berubah jadi **Berjalan**, unit jadi **Disewa**, dan odometer unit ikut
+   diperbarui.
+
+Foto dikecilkan dulu di HP Anda (sisi terpanjang 1280 px) sebelum diunggah, jadi tidak
+boros kuota dan tidak membuat Drive cepat penuh.
+
+> Form ini **menolak disimpan tanpa foto penyewa**. Kalau sedang buru-buru, foto sudut
+> unit boleh dilewati dan dilengkapi belakangan — buka ordernya lagi dan ulangi langkah
+> yang sama; foto lama tidak akan hilang atau tergandakan.
+
+### Foto saat motor kembali
+
+Pada order yang sedang berjalan ada tombol **Foto Kondisi Saat Kembali**. Isinya sama
+persis, dan dipakai untuk mencatat kondisi unit saat diterima lagi. Tombol ini **tidak**
+mengubah status order — menyelesaikan sewa tetap lewat **Selesaikan Sewa**.
+
+Semua foto yang sudah tersimpan tampil sebagai galeri kecil di dalam detail order.
+Ketuk salah satunya untuk membuka ukuran penuh.
+
+### Tautan kwitansi untuk penyewa
+
+Setiap order punya **satu tautan publik** yang bisa dibuka penyewa **tanpa login**.
+Halaman itu menampilkan:
+
+* status keaslian kwitansi (SAH / DIBATALKAN),
+* nomor order, unit, periode, dan total,
+* **linimasa perjalanan sewa**: pesanan dibuat → unit diserahkan → unit dikembalikan →
+  sewa selesai, lengkap dengan foto serah terima dan pengembaliannya,
+* rincian biaya dan daftar perlengkapan yang dibawa.
+
+Nama penyewa sengaja **disamarkan** (`Dimas Aditya` → `D•••s A••••a`) dan nomor WA-nya
+tidak pernah ditampilkan, supaya tautan yang terlanjur tersebar tidak membocorkan data
+pelanggan.
+
+**Cara mengirimkannya:**
+
+* Buka order → **Salin Tautan Kwitansi** → tempel di chat mana pun; atau
+* biarkan otomatis: di template pesan WhatsApp, penanda `{kwitansi}` akan berubah
+  sendiri menjadi tautan kwitansi order tersebut. Penanda ini sudah dipasang di pesan
+  **konfirmasi order baru**, **pengingat pengembalian**, dan **ucapan terima kasih**.
+
+> **Wajib diisi sekali:** buka **Pengaturan → Alamat aplikasi (GitHub Pages)** dan isi dengan
+> alamat GitHub Pages Anda (contoh `https://namaanda.github.io/zan-rental-dashboard`).
+> Selama kolom ini kosong, penanda `{kwitansi}` akan hilang sendiri dari pesan — pesan
+> tetap terkirim rapi tanpa baris menggantung, tapi penyewa tidak dapat tautannya.
+
+---
+
+## Bagian H — Menghapus banyak data sekaligus
 
 Di menu **Order**, **Armada**, dan **Pelanggan** ada tombol **Pilih**. Setelah ditekan,
 setiap kartu mendapat kotak centang dan muncul bar aksi di bawah.

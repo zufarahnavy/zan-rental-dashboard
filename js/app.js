@@ -30,14 +30,36 @@
     subjudul: function () { return Merek.set('MEREK_SUBJUDUL', 'Operasional'); },
     logoUrl:  function () { return String(Merek.set('MEREK_LOGO', '') || '').trim(); },
 
-    /** Logo: gambar bila pemilik mengunggahnya, kalau tidak huruf awal nama. */
+    /**
+     * Logo: gambar bila pemilik mengunggahnya, kalau tidak huruf awal nama.
+     * Penanda data-merek-logo dipakai Merek.segarkanLogo() untuk menggambar
+     * ulang semua dudukan logo tanpa perlu memuat ulang halaman.
+     */
     htmlLogo: function (kelas) {
       const url = Merek.logoUrl();
       const k = kelas || 'merek-logo';
-      if (url) return '<div class="' + k + ' ada-gambar"><img src="' + Z.esc(url) + '" alt="Logo" ' +
+      const huruf = Z.esc((Merek.judul() || 'Z').charAt(0).toUpperCase());
+      if (url) return '<div class="' + k + ' ada-gambar" data-merek-logo="' + k + '">' +
+        '<img src="' + Z.esc(url) + '" alt="Logo" ' +
         'onerror="this.parentNode.classList.remove(\'ada-gambar\');this.parentNode.textContent=\'' +
-        Z.esc((Merek.judul() || 'Z').charAt(0).toUpperCase()) + '\'"></div>';
-      return '<div class="' + k + '">' + Z.esc((Merek.judul() || 'Z').charAt(0).toUpperCase()) + '</div>';
+        huruf + '\'"></div>';
+      return '<div class="' + k + '" data-merek-logo="' + k + '">' + huruf + '</div>';
+    },
+
+    /**
+     * Gambar ulang SETIAP dudukan logo (rail desktop, topbar, layar masuk).
+     * Dulu logo hanya dibangun sekali di gambarKerangka(), sehingga setelah
+     * pemilik mengunggah logo baru tampilan desktop tetap memakai logo lama
+     * sampai halaman dimuat ulang.
+     */
+    segarkanLogo: function () {
+      Z.$$('[data-merek-logo]').forEach(function (el) {
+        const kelas = el.getAttribute('data-merek-logo') || 'merek-logo';
+        const pengganti = document.createElement('div');
+        pengganti.innerHTML = Merek.htmlLogo(kelas);
+        const baru = pengganti.firstElementChild;
+        if (baru && el.parentNode) el.parentNode.replaceChild(baru, el);
+      });
     },
 
     /**
@@ -154,6 +176,7 @@
       if (nama) nama.textContent = Merek.judul();
       const sub = Z.$('#subJudul');
       if (sub && !sub.dataset.dipakaiHalaman) sub.textContent = Merek.subjudul();
+      Merek.segarkanLogo();
     },
 
     FONT: FONT_TERSEDIA

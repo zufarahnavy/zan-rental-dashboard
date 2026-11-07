@@ -411,7 +411,11 @@ html[data-tema="gelap"] .plat { background: var(--c-high); }
 
 /* ---------------- 9. GRAFIK ---------------- */
 .grafik-wrap { width: 100%; }
-.grafik-batang, .grafik-area { width: 100%; height: 150px; display: block; overflow: visible; }
+/* height:auto + preserveAspectRatio bawaan = skala seragam, teks tidak melar.
+   Dulu height dipatok 150px sementara lebar 100%, sehingga di kartu lebar
+   SVG teregang mendatar ~1,7× dan label sumbu tampak gepeng. */
+.grafik-batang, .grafik-area { width: 100%; height: auto; display: block; overflow: visible; }
+.axis-lbl { font-size: 9.5px; fill: var(--teks-var); font-family: Poppins, sans-serif; font-weight: 600; }
 .grid-line { stroke: var(--c-high); stroke-width: 1; stroke-dasharray: 3 4; }
 .grid-base { stroke: var(--c-highest); stroke-width: 1.2; }
 .bar { transition: opacity .18s var(--ease); cursor: pointer; }
@@ -988,3 +992,145 @@ b, strong { font-weight: 700; }
 /* Tautan teks ("Lihat semua", "Laporan") hanya setinggi barisnya (20px) dan
    gagal ambang minimum WCAG 2.5.8 (24×24) bahkan dengan tetikus. */
 .tautan { display: inline-flex; align-items: center; min-height: 24px; }
+
+/* =====================================================================
+   BAR PROSES "BUAT ORDER"
+   DOM-nya tetap; hanya kelas yang berganti, sehingga setiap perubahan
+   langkah bisa dianimasikan (garis terisi, bulatan berdenyut, centang
+   muncul) tanpa elemen diganti baru.
+   ===================================================================== */
+.ord-step { display: flex; align-items: center; gap: 4px; }
+
+.ord-step-item {
+  display: flex; align-items: center; gap: 7px; min-width: 0;
+  background: none; border: 0; padding: 2px; cursor: pointer;
+  opacity: .5; transition: opacity .28s var(--ease);
+}
+.ord-step-item.aktif, .ord-step-item.selesai { opacity: 1; }
+
+.ord-step-bul {
+  position: relative; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; flex: none;
+  background: var(--c); color: var(--teks-var);
+  font-size: 11.5px; font-weight: 700;
+  transition: background .3s var(--ease), color .3s var(--ease), transform .3s var(--ease);
+}
+.ord-step-item.aktif   .ord-step-bul { background: var(--kuning); color: var(--aksen-kontras); transform: scale(1.1); }
+.ord-step-item.selesai .ord-step-bul { background: var(--ok-bg); color: var(--ok); }
+
+/* Angka dan centang bertumpuk; yang satu memudar, yang lain muncul. */
+.ord-step-no, .ord-step-ok {
+  position: absolute; display: grid; place-items: center;
+  transition: opacity .22s var(--ease), transform .22s var(--ease);
+}
+.ord-step-ok { opacity: 0; transform: scale(.4) rotate(-25deg); }
+.ord-step-item.selesai .ord-step-no { opacity: 0; transform: scale(.4); }
+.ord-step-item.selesai .ord-step-ok { opacity: 1; transform: none; }
+
+.ord-step-teks {
+  font-size: 11px; font-weight: 700; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Garis penghubung: lapisan isian melebar dari kiri ke kanan. */
+.ord-step-garis {
+  flex: 1; height: 2px; border-radius: 2px; background: var(--c-high);
+  position: relative; overflow: hidden; min-width: 10px;
+}
+.ord-step-garis b {
+  position: absolute; inset: 0; width: 0; border-radius: 2px;
+  background: var(--kuning);
+  transition: width .42s var(--ease);
+}
+.ord-step-garis.isi b { width: 100%; }
+
+/* Denyut sekali saat sebuah langkah baru rampung. */
+@keyframes ordStepDenyut {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.26); }
+  100% { transform: scale(1); }
+}
+.ord-step-item.baru-selesai .ord-step-bul { animation: ordStepDenyut .42s var(--ease); }
+
+/* Label panjang di layar lega, label pendek di layar sempit —
+   lebih baik daripada teks terpotong "Unit & Tang…". */
+.ord-step-teks .pdk { display: none; }
+@media (max-width: 460px) {
+  .ord-step-teks .pjg { display: none; }
+  .ord-step-teks .pdk { display: inline; }
+  .ord-step-teks { font-size: 10.5px; }
+  .ord-step-bul { width: 24px; height: 24px; }
+  .ord-step-item { gap: 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ord-step-item, .ord-step-bul, .ord-step-no, .ord-step-ok, .ord-step-garis b { transition: none; }
+  .ord-step-item.baru-selesai .ord-step-bul { animation: none; }
+}
+
+/* =====================================================================
+   FOTO SERAH TERIMA / PENGEMBALIAN
+   ===================================================================== */
+.foto-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+@media (max-width: 380px) { .foto-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.foto-slot { display: block; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.foto-pratinjau {
+  position: relative; aspect-ratio: 4 / 3; border-radius: 12px;
+  background: var(--c) center/cover no-repeat;
+  border: 1.5px dashed var(--c-highest);
+  display: grid; place-items: center; color: var(--teks-var);
+  transition: border-color .2s var(--ease), transform .18s var(--ease);
+}
+.foto-slot:active .foto-pratinjau { transform: scale(.97); }
+.foto-slot.ada .foto-pratinjau { border-style: solid; border-color: var(--ok); }
+.foto-slot.wajib .foto-pratinjau { border-color: var(--warn); }
+.foto-slot.wajib.ada .foto-pratinjau { border-color: var(--ok); }
+/* Tanda centang pada slot yang sudah terisi */
+.foto-slot.ada .foto-pratinjau::after {
+  content: ''; position: absolute; right: 5px; top: 5px; width: 17px; height: 17px;
+  border-radius: 50%; background: var(--ok-isi) center/11px no-repeat;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+}
+.foto-pratinjau.memuat { opacity: .55; }
+.foto-nama { font-size: 10.5px; font-weight: 600; text-align: center; margin-top: 5px; color: var(--teks-var); }
+
+/* Galeri foto pada detail order & halaman publik */
+.foto-bukti { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 7px; }
+.foto-bukti a {
+  position: relative; display: block; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden;
+  background: var(--c); border: 1px solid var(--c-highest);
+}
+.foto-bukti img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Label hanya muncul bila fotonya gagal dimuat, supaya kotak tidak kosong tanpa penjelasan */
+.foto-bukti a > span { display: none; }
+.foto-bukti a.gagal img { display: none; }
+.foto-bukti a.gagal > span {
+  display: grid; place-items: center; text-align: center; width: 100%; height: 100%;
+  padding: 4px; font-size: 9.5px; font-weight: 600; line-height: 1.3; color: var(--teks-var);
+}
+
+/* =====================================================================
+   LINIMASA PERJALANAN SEWA (halaman kwitansi publik)
+   ===================================================================== */
+.lini { list-style: none; margin: 14px 0 0; padding: 0; }
+.lini-item { position: relative; padding: 0 0 18px 30px; }
+.lini-item:last-child { padding-bottom: 0; }
+/* Garis penghubung antar tahap */
+.lini-item::before {
+  content: ''; position: absolute; left: 9px; top: 20px; bottom: 0; width: 2px;
+  background: var(--c-highest); border-radius: 2px;
+}
+.lini-item:last-child::before { display: none; }
+.lini-item.selesai::before { background: var(--ok); }
+
+.lini-bul {
+  position: absolute; left: 0; top: 2px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--c); border: 2px solid var(--c-highest);
+  display: grid; place-items: center; color: #fff;
+}
+.lini-item.selesai .lini-bul { background: var(--ok-isi); border-color: var(--ok-isi); }
+
+.lini-judul { font-size: 13px; font-weight: 600; line-height: 1.4; color: var(--teks-var); }
+.lini-item.selesai .lini-judul { color: var(--teks); font-weight: 700; }
+.lini-waktu { font-size: 11.5px; color: var(--teks-var); margin-top: 1px; }
+.lini-ket   { font-size: 11.5px; color: var(--teks-var); margin-top: 3px; }

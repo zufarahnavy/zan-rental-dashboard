@@ -832,7 +832,7 @@
       const q = String(FormOrder.cariUnit || '').toLowerCase().trim();
       const hasil = !q ? h.tersedia : h.tersedia.filter(function (x) {
         return ((x.nama || '') + ' ' + (x.plat || '') + ' ' + (x.merek || '') + ' ' +
-                (x.tipe || '') + ' ' + (x.fasilitas || '')).toLowerCase().indexOf(q) >= 0;
+                (x.tipe || '')).toLowerCase().indexOf(q) >= 0;
       });
       if (!h.tersedia.length) {
         return U.kosong('motor', 'Tidak ada unit bebas',
@@ -905,7 +905,7 @@
         '</div></section>';
 
       /* Stepper */
-      html += '<section class="kartu kartu-rapat"><div id="oStep">' + this.htmlStep(langkah) + '</div></section>';
+      html += '<section class="kartu kartu-rapat" id="oStepWrap">' + this.htmlStep(langkah) + '</section>';
 
       /* 1. Pelanggan */
       html += '<section class="kartu">' +
@@ -1015,7 +1015,7 @@
           '</div></div>' +
         '<div class="field"><label>Metode pembayaran</label>' +
           '<div class="pilih-grid" id="oMetode">' +
-            ['Tunai', 'Transfer BCA', 'QRIS', 'Lainnya'].map(function (m) {
+            Z.metodeBayarOpsi().concat(['Lainnya']).map(function (m) {
               return '<button type="button" class="pilih' + (f.metode === m ? ' on' : '') + '" data-metode="' + esc(m) + '">' +
                 '<span class="j">' + esc(m) + '</span></button>';
             }).join('') + '</div></div>' +
@@ -1034,13 +1034,54 @@
       return html;
     },
 
+    /**
+     * Bar proses. DOM-nya dibuat SEKALI lalu hanya kelasnya yang berubah —
+     * kalau di-innerHTML ulang setiap isian berubah, elemennya diganti baru
+     * sehingga tidak ada transisi CSS yang bisa berjalan (terlihat berkedip).
+     */
     htmlStep: function (langkah) {
-      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px">' +
-        step(1, 'Pelanggan', langkah > 1 ? 'selesai' : (langkah === 1 ? 'aktif' : '')) +
-        '<i style="flex:1;height:2px;border-radius:2px;background:' + (langkah > 1 ? 'var(--kuning)' : 'var(--c-high)') + '"></i>' +
-        step(2, 'Unit & Tanggal', langkah > 2 ? 'selesai' : (langkah === 2 ? 'aktif' : '')) +
-        '<i style="flex:1;height:2px;border-radius:2px;background:' + (langkah > 2 ? 'var(--kuning)' : 'var(--c-high)') + '"></i>' +
-        step(3, 'Biaya & Bayar', langkah === 3 ? 'aktif' : '') + '</div>';
+      // [nomor, label panjang, label pendek untuk layar sempit]
+      const L = [[1, 'Pelanggan', 'Pelanggan'], [2, 'Unit & Tanggal', 'Unit'], [3, 'Biaya & Bayar', 'Biaya']];
+      return '<div class="ord-step" data-langkah="' + langkah + '">' +
+        L.map(function (x, i) {
+          const kead = x[0] < langkah ? ' selesai' : (x[0] === langkah ? ' aktif' : '');
+          const garis = i > 0
+            ? '<i class="ord-step-garis' + (langkah > i ? ' isi' : '') + '"><b></b></i>'
+            : '';
+          return garis +
+            '<button type="button" class="ord-step-item' + kead + '" data-lompat="' + x[0] +
+              '" aria-label="Ke langkah ' + x[1] + '">' +
+              '<span class="ord-step-bul">' +
+                '<span class="ord-step-no">' + x[0] + '</span>' +
+                '<span class="ord-step-ok">' + Z.Ikon('check', 14) + '</span>' +
+              '</span>' +
+              '<span class="ord-step-teks"><span class="pjg">' + esc(x[1]) + '</span>' +
+                '<span class="pdk">' + esc(x[2]) + '</span></span>' +
+            '</button>';
+        }).join('') +
+      '</div>';
+    },
+
+    /** Perbarui bar proses tanpa menggambar ulang (supaya animasinya jalan). */
+    segarStep: function (root, langkah) {
+      const el = (root || document).querySelector('.ord-step');
+      if (!el) return;
+      const lama = Z.num(el.getAttribute('data-langkah')) || 1;
+      el.setAttribute('data-langkah', langkah);
+      Z.$$('.ord-step-item', el).forEach(function (it) {
+        const n = Z.num(it.getAttribute('data-lompat'));
+        it.classList.toggle('selesai', n < langkah);
+        it.classList.toggle('aktif', n === langkah);
+        // Denyut kecil hanya pada langkah yang BARU saja rampung.
+        if (n < langkah && n >= lama) {
+          it.classList.remove('baru-selesai');
+          void it.offsetWidth;                 // paksa ulang animasi
+          it.classList.add('baru-selesai');
+        }
+      });
+      Z.$$('.ord-step-garis', el).forEach(function (g, i) {
+        g.classList.toggle('isi', langkah > i + 1);
+      });
     },
 
     htmlPelanggan: function (c) {
@@ -1111,8 +1152,7 @@
       const peringatan = $('#nDiskonPeringatan');
       if (peringatan) peringatan.hidden = Z.num(f.diskon) <= (h.sewa + h.biayaAntar);
 
-      const stepEl = $('#oStep');
-      if (stepEl) stepEl.innerHTML = this.htmlStep(!h.c ? 1 : (!h.u ? 2 : 3));
+      this.segarStep(root, !h.c ? 1 : (!h.u ? 2 : 3));
 
       const aksiEl = $('#oAksi');
       if (aksiEl) { aksiEl.innerHTML = this.htmlAksi(!!h.c && !!h.u, f.id); diri.ikatAksi(root); }
@@ -1279,6 +1319,19 @@
         });
       });
 
+      /* Klik pada sebuah langkah menggulirkan ke bagian isiannya. Bar proses
+         jadi alat bantu navigasi, bukan sekadar hiasan penunjuk posisi. */
+      Z.$$('[data-lompat]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          const n = Z.num(b.getAttribute('data-lompat'));
+          const tujuan = root.querySelectorAll('section.kartu');
+          // 0 = bar proses, 1 = pelanggan, 2 = unit & tanggal, sisanya biaya
+          const idx = n === 1 ? 1 : (n === 2 ? 2 : tujuan.length - 1);
+          const el = tujuan[Math.min(idx, tujuan.length - 1)];
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+
       diri.ikatUnit(root);
       diri.ikatPelanggan(root);
       diri.ikatLengkap(root);
@@ -1316,7 +1369,8 @@
           '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">' +
             '<span class="plat" style="font-size:10.5px">' + esc(u.plat) + '</span>' +
             U.badge('Tersedia', 'ok') + '</div>' +
-          '<div class="t-sm t-var" style="margin-top:4px">' + esc(u.fasilitas || '') + '</div>' +
+          '<div class="t-sm t-var" style="margin-top:4px">' + esc(u.tipe || '') +
+            (u.tahun ? ' • ' + esc(u.tahun) : '') + '</div>' +
         '</div>' +
         '<div style="text-align:right;flex:none">' +
           '<div class="t-rp">' + Z.rp(u.harga) + '</div>' +
@@ -1496,7 +1550,7 @@
     /* Form tambah/ubah unit */
     form: function (id) {
       const u = id ? unit(id) : { nama: '', merek: 'Honda', plat: '', tahun: new Date().getFullYear(), tipe: 'Matic',
-        harga: 100000, status: 'Tersedia', warna: '', odo: 0, pajak: '', fasilitas: '2 Helm SNI • 2 Jas Hujan',
+        harga: 100000, status: 'Tersedia', warna: '', odo: 0, pajak: '',
         foto: 'art:beat:#2E7D32', servisNext: 2000 };
       const seniPilihan = ['scoopy', 'nmax', 'vario', 'beat', 'pcx', 'aerox', 'fazzio', 'genio', 'mio', 'lexi', 'adv', 'supra', 'verza'];
       const warnaPilihan = ['#1F2430', '#C62828', '#1565C0', '#F2EDE3', '#2E7D32', '#F9A825', '#7E6B8F', '#0097A7', '#D84315', '#8D6E63'];
@@ -1516,7 +1570,6 @@
           return '<option' + (u.status === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></div></div>' +
         '<div class="grid2"><div class="field"><label>Odometer (km)</label><input class="inp" type="number" data-u="odo" value="' + Z.num(u.odo) + '"></div>' +
         '<div class="field"><label>Jatuh tempo pajak STNK</label><input class="inp" type="date" data-u="pajak" value="' + esc(u.pajak) + '"></div></div>' +
-        '<div class="field"><label>Perlengkapan</label><input class="inp" data-u="fasilitas" value="' + esc(u.fasilitas) + '"></div>' +
         '<div class="field"><label>Tampilan kartu (ilustrasi)</label>' +
           '<div id="praFoto" style="border-radius:14px;overflow:hidden;margin-bottom:9px">' + Z.fotoUnit(u.foto, { tinggi: 120 }) + '</div>' +
           '<div class="chips" style="margin-bottom:7px">' + seniPilihan.map(function (s) {
@@ -1603,7 +1656,8 @@
         '</div></div>' +
       '<div class="unit-isi">' +
         '<div><div style="font-weight:700;font-size:15px;line-height:1.25">' + esc(u.nama) + '</div>' +
-        '<div class="t-sm t-var">' + esc(u.tipe) + ' • ' + esc(u.fasilitas || '') + '</div></div>' +
+        '<div class="t-sm t-var">' + esc(u.tipe) + (u.tahun ? ' • ' + esc(u.tahun) : '') +
+          (Z.num(u.odo) ? ' • ' + Z.ribuan(Z.num(u.odo)) + ' km' : '') + '</div></div>' +
         (order ? '<div class="kotak ' + (telat > 0 ? 'kotak-danger' : '') + '" style="display:flex;align-items:center;gap:9px">' +
             U.avatar(c.nama, 'avatar-kecil') +
             '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px">' + esc(c.nama) + '</div>' +
