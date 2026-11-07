@@ -837,6 +837,50 @@
           '><i></i></label></div>';
       }
 
+      /* Kotak unggah gambar (logo / favicon) — nilainya URL Drive hasil unggah. */
+      function gambarKotak(kunci, label, nilai, bantu) {
+        const ada = String(nilai || '').trim();
+        return '<div class="unggah-kotak" data-unggah="' + kunci + '">' +
+          '<div class="unggah-pratinjau" data-pratinjau="' + kunci + '">' +
+            (ada ? '<img src="' + esc(ada) + '" alt="">' : Z.Ikon('kamera', 22)) + '</div>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-weight:600;font-size:12.5px">' + esc(label) + '</div>' +
+            '<div class="t-sm t-var">' + esc(bantu || '') + '</div>' +
+            '<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
+              '<button type="button" class="btn btn-kecil btn-netral" data-pilih-gambar="' + kunci + '">Pilih berkas</button>' +
+              (ada ? '<button type="button" class="btn btn-kecil btn-netral" data-hapus-gambar="' + kunci + '">Hapus</button>' : '') +
+            '</div>' +
+          '</div>' +
+          '<input type="hidden" data-set="' + kunci + '" value="' + esc(ada) + '">' +
+          '<input type="file" accept="image/*" hidden data-file="' + kunci + '">' +
+        '</div>';
+      }
+
+      function warnaKotak(kunci, label, nilai) {
+        return '<div class="warna-kotak">' +
+          '<input type="color" data-warna="' + kunci + '" value="' + esc(nilai) + '" aria-label="' + esc(label) + '">' +
+          '<div style="min-width:0"><div style="font-weight:600;font-size:12px">' + esc(label) + '</div>' +
+          '<div class="t-sm t-var warna-kode" data-kode="' + kunci + '">' + esc(nilai.toUpperCase()) + '</div></div>' +
+          '<input type="hidden" data-set="' + kunci + '" value="' + esc(nilai) + '">' +
+        '</div>';
+      }
+
+      function lengkapBarisHtml(arr) {
+        if (!arr.length) return '<div class="t-sm t-var" style="padding:10px 2px">Belum ada perlengkapan.</div>';
+        return arr.map(function (o, i) {
+          return '<div class="lengkap-baris on" data-set-lengkap="' + i + '">' +
+            '<input class="inp lengkap-nama-inp" data-lnama="' + i + '" value="' + esc(o.n) + '" maxlength="40">' +
+            '<div class="stepper">' +
+              '<button type="button" class="stepper-b" data-lkurang="' + i + '" aria-label="Kurangi">−</button>' +
+              '<span class="stepper-n" data-ljml="' + i + '">' + (Z.num(o.j) || 1) + '</span>' +
+              '<button type="button" class="stepper-b" data-ltambah="' + i + '" aria-label="Tambah">+</button>' +
+            '</div>' +
+            '<button type="button" class="ikon-btn ikon-btn-kecil" data-lhapus="' + i + '" aria-label="Hapus">' +
+              Z.Ikon('sampah', 16) + '</button>' +
+          '</div>';
+        }).join('');
+      }
+
       let html = '';
       html += '<section><div style="display:flex;align-items:center;gap:9px">' +
         '<button class="ikon-btn" data-nav="lainnya">' + Z.Ikon('panahKiri', 20) + '</button>' +
@@ -865,6 +909,99 @@
         sw('FITUR_ANTAR', 'Antar-jemput', 'Aktifkan layanan antar unit ke lokasi') +
         '</div></section>';
 
+      /* ---------- Merek: logo, favicon, judul ---------- */
+      html += '<section class="kartu"><h3 class="t-judul">Logo & Identitas Aplikasi</h3>' +
+        '<div class="grid2" style="margin-top:12px;gap:10px">' +
+          gambarKotak('MEREK_LOGO', 'Logo aplikasi', s.MEREK_LOGO, 'Tampil di bar atas, side-rail, dan layar masuk.') +
+          gambarKotak('MEREK_FAVICON', 'Favicon tab', s.MEREK_FAVICON, 'Ikon kecil pada tab peramban.') +
+        '</div>' +
+        '<div style="margin-top:12px">' +
+          f('MEREK_JUDUL', 'Judul pada bar atas', { ph: 'ZAN Dashboard' }) +
+          f('MEREK_SUBJUDUL', 'Subjudul kecil', { ph: 'Operasional' }) +
+        '</div></section>';
+
+      /* ---------- Warna & font ---------- */
+      const PRESET = [
+        { n: 'ZAN Kuning', a: '#FFE600', t: '#0B0B0F', u: '#69567E' },
+        { n: 'Jingga',     a: '#FF8A00', t: '#101014', u: '#5B4B8A' },
+        { n: 'Hijau',      a: '#21C05B', t: '#0C1410', u: '#2F6F57' },
+        { n: 'Biru',       a: '#2F7BFF', t: '#0B1020', u: '#4A5A8A' },
+        { n: 'Merah',      a: '#FF4D4D', t: '#140B0B', u: '#8A4B5B' }
+      ];
+      html += '<section class="kartu"><h3 class="t-judul">Warna & Font</h3>' +
+        '<div class="t-sm t-var" style="margin-top:4px">Perubahan langsung terlihat sebelum disimpan.</div>' +
+        '<div class="preset-baris">' + PRESET.map(function (p) {
+          return '<button type="button" class="preset-warna" data-preset=\'' + JSON.stringify(p) + '\' title="' + esc(p.n) + '">' +
+            '<span style="background:' + p.a + '"></span><span style="background:' + p.u + '"></span>' +
+            '<span style="background:' + p.t + '"></span><b>' + esc(p.n) + '</b></button>';
+        }).join('') + '</div>' +
+        '<div class="grid2" style="margin-top:12px;gap:10px">' +
+          warnaKotak('WARNA_AKSEN', 'Aksi utama', s.WARNA_AKSEN || '#FFE600') +
+          warnaKotak('WARNA_SEKUNDER', 'Panel & grafik', s.WARNA_SEKUNDER || '#69567E') +
+          warnaKotak('WARNA_TINTA', 'Teks & kontras', s.WARNA_TINTA || '#0B0B0F') +
+        '</div>' +
+        '<div class="field" style="margin-top:12px;margin-bottom:0"><label>Font aplikasi</label>' +
+          '<div class="pilih-grid" id="pilihFont">' +
+          ['Poppins', 'Sistem', 'Bulat', 'Serif'].map(function (nf) {
+            const on = (s.FONT_APP || 'Poppins') === nf;
+            return '<button type="button" class="pilih' + (on ? ' on' : '') + '" data-font="' + nf + '">' +
+              '<span class="j">' + nf + '</span></button>';
+          }).join('') + '</div>' +
+          '<div class="bantu">Poppins dipaketkan bersama aplikasi sehingga selalu tampil sama. ' +
+          'Tiga pilihan lain memakai font bawaan perangkat — paling ringan, tetapi bentuknya ' +
+          'bisa sedikit berbeda antara Android, iPhone, dan komputer.</div></div>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:10px" id="resetWarna">' +
+          Z.Ikon('sinkron', 15) + 'Kembalikan warna & font bawaan</button>' +
+      '</section>';
+
+      /* ---------- Perlengkapan ---------- */
+      let lengkap = [];
+      try { lengkap = JSON.parse(s.PERLENGKAPAN_OPSI || '[]') || []; } catch (e) { lengkap = []; }
+      html += '<section class="kartu"><h3 class="t-judul">Daftar Perlengkapan</h3>' +
+        '<div class="t-sm t-var" style="margin-top:4px">Pilihan yang muncul saat membuat order. ' +
+        'Angka di sebelahnya adalah jumlah bawaan saat dicentang.</div>' +
+        '<div id="setLengkap" class="lengkap-daftar">' + lengkapBarisHtml(lengkap) + '</div>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" id="setLengkapTambah">' +
+          Z.Ikon('plus', 15) + 'Tambah jenis perlengkapan</button></section>';
+
+      /* ---------- Template kwitansi ---------- */
+      let kw = {};
+      try { kw = JSON.parse(s.KWITANSI_OPSI || '{}') || {}; } catch (e) { kw = {}; }
+      function kwSw(k, label, bantu) {
+        return '<div class="kotak" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px">' +
+          '<div style="min-width:0"><div style="font-weight:600;font-size:12.5px">' + esc(label) + '</div>' +
+          '<div class="t-sm t-var">' + esc(bantu) + '</div></div>' +
+          '<label class="switch"><input type="checkbox" data-kw="' + k + '"' + (kw[k] !== false ? ' checked' : '') +
+          '><i></i></label></div>';
+      }
+      html += '<section class="kartu"><h3 class="t-judul">Template Kwitansi PDF</h3>' +
+        '<div class="field" style="margin-top:12px"><label>Bentuk kop surat</label>' +
+          '<div class="pilih-grid" id="pilihKop">' +
+          [['penuh', 'Kop penuh'], ['ringkas', 'Ringkas'], ['polos', 'Tanpa kop']].map(function (o) {
+            const on = (kw.kop || 'penuh') === o[0];
+            return '<button type="button" class="pilih' + (on ? ' on' : '') + '" data-kop="' + o[0] + '">' +
+              '<span class="j">' + o[1] + '</span></button>';
+          }).join('') + '</div></div>' +
+        kwSw('logo', 'Tampilkan logo', 'Logo usaha di sudut kiri atas kwitansi') +
+        kwSw('qr', 'QR verifikasi', 'Pelanggan bisa memeriksa keaslian kwitansi') +
+        kwSw('perlengkapan', 'Rincian perlengkapan', 'Cantumkan helm, jas hujan, dll yang dibawa') +
+        kwSw('catatan', 'Catatan order', 'Tampilkan catatan kondisi unit') +
+        kwSw('tandaTangan', 'Kolom tanda tangan', 'Ruang tanda tangan penyewa & petugas') +
+        kwSw('warna', 'Cetak berwarna', 'Matikan untuk hemat tinta printer') +
+        '<div class="field" style="margin-bottom:0"><label>Kalimat penutup</label>' +
+          '<input class="inp" data-kwteks="kakiTeks" maxlength="120" value="' + esc(kw.kakiTeks || '') + '" ' +
+          'placeholder="Terima kasih telah menyewa di ZAN Rental."></div>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:10px" id="pratinjauKwitansi">' +
+          Z.Ikon('dokumen', 15) + 'Pratinjau kwitansi contoh</button></section>';
+
+      /* ---------- Draft WA ---------- */
+      html += '<section class="kartu"><h3 class="t-judul">Draft Pesan WhatsApp</h3>' +
+        '<div class="t-sm t-var" style="margin-top:4px">Teks yang terisi otomatis saat menghubungi pelanggan — ' +
+        'konfirmasi order, pengingat kembali, penagihan denda, dan ucapan terima kasih. ' +
+        'Tersedia penanda seperti {nama}, {unit}, {total}, {tanggal}.</div>' +
+        '<button class="btn btn-netral btn-blok" style="margin-top:11px" data-nav="notifikasi">' +
+          Z.Ikon('wa', 17) + 'Buka editor draft pesan</button></section>';
+
       html += '<section class="kartu"><h3 class="t-judul">Tampilan</h3>' +
         '<div class="kotak" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
         '<div><div style="font-weight:600;font-size:12.5px">Mode gelap</div>' +
@@ -889,13 +1026,184 @@
       if (sw) sw.addEventListener('change', function (e) { global.App.gantiTema(sw.checked ? 'gelap' : 'terang', e); });
       const gp = Z.$('#gantiPin', root);
       if (gp) gp.addEventListener('click', formGantiPin);
+
+      /* ---------- Unggah logo & favicon ---------- */
+      Z.$$('[data-pilih-gambar]', root).forEach(function (b) {
+        const k = b.getAttribute('data-pilih-gambar');
+        b.addEventListener('click', function () { Z.$('[data-file="' + k + '"]', root).click(); });
+      });
+      Z.$$('[data-file]', root).forEach(function (inp) {
+        const k = inp.getAttribute('data-file');
+        inp.addEventListener('change', async function () {
+          const berkas = inp.files && inp.files[0];
+          if (!berkas) return;
+          if (!/^image\//.test(berkas.type)) return Z.toast('Pilih berkas gambar.', 'err');
+          try {
+            // Dikecilkan di peramban dulu: logo besar tidak ada gunanya dan
+            // hanya memperlambat pemuatan aplikasi tiap kali dibuka.
+            const kecil = await kecilkanGambar(berkas, k === 'MEREK_FAVICON' ? 128 : 320);
+            Z.toast('Mengunggah…');
+            const r = await global.App.kirim('upload.foto', {
+              base64: kecil, mime: 'image/png', jenis: 'dokumen', nama: k.toLowerCase()
+            });
+            if (!r.success) return;
+            Z.$('[data-set="' + k + '"]', root).value = r.data.url;
+            const pv = Z.$('[data-pratinjau="' + k + '"]', root);
+            if (pv) pv.innerHTML = '<img src="' + Z.esc(r.data.url) + '" alt="">';
+            Z.toast('Gambar siap. Tekan Simpan Pengaturan untuk menerapkan.');
+          } catch (e) { Z.toast('Gagal memproses gambar: ' + e.message, 'err'); }
+          inp.value = '';
+        });
+      });
+      Z.$$('[data-hapus-gambar]', root).forEach(function (b) {
+        const k = b.getAttribute('data-hapus-gambar');
+        b.addEventListener('click', function () {
+          Z.$('[data-set="' + k + '"]', root).value = '';
+          const pv = Z.$('[data-pratinjau="' + k + '"]', root);
+          if (pv) pv.innerHTML = Z.Ikon('kamera', 22);
+          b.remove();
+          Z.toast('Gambar dilepas. Tekan Simpan Pengaturan.');
+        });
+      });
+
+      /* ---------- Warna: pratinjau langsung ---------- */
+      const PETA_VAR = { WARNA_AKSEN: '--kuning', WARNA_SEKUNDER: '--ungu', WARNA_TINTA: '--ink' };
+      function pakaiWarna(k, v) {
+        Z.$('[data-set="' + k + '"]', root).value = v;
+        const kode = Z.$('[data-kode="' + k + '"]', root);
+        if (kode) kode.textContent = v.toUpperCase();
+        const inp = Z.$('[data-warna="' + k + '"]', root);
+        if (inp && inp.value !== v) inp.value = v;
+        document.documentElement.style.setProperty(PETA_VAR[k], v);
+      }
+      Z.$$('[data-warna]', root).forEach(function (inp) {
+        inp.addEventListener('input', function () { pakaiWarna(inp.getAttribute('data-warna'), inp.value); });
+      });
+      Z.$$('[data-preset]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          let p; try { p = JSON.parse(b.getAttribute('data-preset')); } catch (e) { return; }
+          pakaiWarna('WARNA_AKSEN', p.a); pakaiWarna('WARNA_SEKUNDER', p.u); pakaiWarna('WARNA_TINTA', p.t);
+        });
+      });
+      let fontPilih = (D().pengaturan || {}).FONT_APP || 'Poppins';
+      Z.$$('[data-font]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          fontPilih = b.getAttribute('data-font');
+          Z.$$('[data-font]', root).forEach(function (x) { x.classList.toggle('on', x === b); });
+          document.documentElement.style.setProperty('--font-app',
+            (global.Merek && global.Merek.FONT[fontPilih]) || 'Poppins, sans-serif');
+        });
+      });
+      const rw = Z.$('#resetWarna', root);
+      if (rw) rw.addEventListener('click', function () {
+        pakaiWarna('WARNA_AKSEN', '#FFE600'); pakaiWarna('WARNA_SEKUNDER', '#69567E'); pakaiWarna('WARNA_TINTA', '#0B0B0F');
+        fontPilih = 'Poppins';
+        Z.$$('[data-font]', root).forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-font') === 'Poppins'); });
+        document.documentElement.style.setProperty('--font-app', global.Merek.FONT.Poppins);
+        Z.toast('Warna & font kembali ke bawaan. Tekan Simpan Pengaturan.');
+      });
+
+      /* ---------- Daftar perlengkapan ---------- */
+      let lengkap = [];
+      try { lengkap = JSON.parse((D().pengaturan || {}).PERLENGKAPAN_OPSI || '[]') || []; } catch (e) { lengkap = []; }
+      function gambarLengkap() {
+        const wadah = Z.$('#setLengkap', root);
+        if (!wadah) return;
+        wadah.innerHTML = lengkap.length
+          ? lengkap.map(function (o, i) {
+              return '<div class="lengkap-baris on" data-set-lengkap="' + i + '">' +
+                '<input class="inp lengkap-nama-inp" data-lnama="' + i + '" value="' + esc(o.n) + '" maxlength="40">' +
+                '<div class="stepper">' +
+                  '<button type="button" class="stepper-b" data-lkurang="' + i + '" aria-label="Kurangi">−</button>' +
+                  '<span class="stepper-n" data-ljml="' + i + '">' + (Z.num(o.j) || 1) + '</span>' +
+                  '<button type="button" class="stepper-b" data-ltambah="' + i + '" aria-label="Tambah">+</button>' +
+                '</div>' +
+                '<button type="button" class="ikon-btn ikon-btn-kecil" data-lhapus="' + i + '" aria-label="Hapus">' +
+                  Z.Ikon('sampah', 16) + '</button></div>';
+            }).join('')
+          : '<div class="t-sm t-var" style="padding:10px 2px">Belum ada perlengkapan.</div>';
+        ikatLengkap();
+      }
+      function ikatLengkap() {
+        Z.$$('[data-lnama]', root).forEach(function (i) {
+          i.addEventListener('input', function () { lengkap[Z.num(i.getAttribute('data-lnama'))].n = i.value; });
+        });
+        Z.$$('[data-ltambah]', root).forEach(function (b) {
+          b.addEventListener('click', function () {
+            const n = Z.num(b.getAttribute('data-ltambah'));
+            lengkap[n].j = Math.min(20, (Z.num(lengkap[n].j) || 1) + 1);
+            Z.$('[data-ljml="' + n + '"]', root).textContent = lengkap[n].j;
+          });
+        });
+        Z.$$('[data-lkurang]', root).forEach(function (b) {
+          b.addEventListener('click', function () {
+            const n = Z.num(b.getAttribute('data-lkurang'));
+            lengkap[n].j = Math.max(1, (Z.num(lengkap[n].j) || 1) - 1);
+            Z.$('[data-ljml="' + n + '"]', root).textContent = lengkap[n].j;
+          });
+        });
+        Z.$$('[data-lhapus]', root).forEach(function (b) {
+          b.addEventListener('click', function () {
+            lengkap.splice(Z.num(b.getAttribute('data-lhapus')), 1);
+            gambarLengkap();
+          });
+        });
+      }
+      ikatLengkap();
+      const tl = Z.$('#setLengkapTambah', root);
+      if (tl) tl.addEventListener('click', function () {
+        Z.tanya({ judul: 'Tambah perlengkapan', label: 'Nama', placeholder: 'Contoh: Box Belakang', maks: 40 })
+          .then(function (nama) {
+            nama = String(nama || '').trim();
+            if (!nama) return;
+            if (lengkap.some(function (o) { return o.n.toLowerCase() === nama.toLowerCase(); }))
+              return Z.toast('“' + nama + '” sudah ada.', 'err');
+            lengkap.push({ n: nama, j: 1 });
+            gambarLengkap();
+          });
+      });
+
+      /* ---------- Template kwitansi ---------- */
+      let kop = null;
+      Z.$$('[data-kop]', root).forEach(function (b) {
+        if (b.classList.contains('on')) kop = b.getAttribute('data-kop');
+        b.addEventListener('click', function () {
+          kop = b.getAttribute('data-kop');
+          Z.$$('[data-kop]', root).forEach(function (x) { x.classList.toggle('on', x === b); });
+        });
+      });
+      const pk = Z.$('#pratinjauKwitansi', root);
+      if (pk) pk.addEventListener('click', async function () {
+        const o = (D().pesanan || []).filter(function (x) { return x.status === 'Selesai'; })[0] || (D().pesanan || [])[0];
+        if (!o) return Z.toast('Belum ada order untuk dijadikan contoh.', 'err');
+        Z.toast('Menyiapkan pratinjau…');
+        const r = await global.App.kirim('dok.kwitansi', { id: o.id });
+        if (r.success && r.data && r.data.url) global.open(r.data.url, '_blank');
+      });
+
+      /* ---------- Simpan ---------- */
       const sp = Z.$('#simpanSet', root);
       if (sp) sp.addEventListener('click', async function () {
         const nilai = {};
         Z.$$('[data-set]', root).forEach(function (i) { nilai[i.getAttribute('data-set')] = i.value; });
         Z.$$('[data-sw]', root).forEach(function (i) { nilai[i.getAttribute('data-sw')] = i.checked ? 'YA' : 'TIDAK'; });
+        nilai.FONT_APP = fontPilih;
+        nilai.PERLENGKAPAN_OPSI = JSON.stringify(
+          lengkap.map(function (o) { return { n: String(o.n || '').trim(), j: Z.num(o.j) || 1 }; })
+                 .filter(function (o) { return o.n; }));
+        const kw = { kop: kop || 'penuh' };
+        Z.$$('[data-kw]', root).forEach(function (i) { kw[i.getAttribute('data-kw')] = i.checked; });
+        const kt = Z.$('[data-kwteks="kakiTeks"]', root);
+        kw.kakiTeks = kt ? kt.value : '';
+        nilai.KWITANSI_OPSI = JSON.stringify(kw);
+
+        sp.disabled = true;
         const r = await global.App.kirim('pengaturan.simpan', { nilai: nilai });
-        if (r.success) await global.App.muatUlang(true);
+        sp.disabled = false;
+        if (r.success) {
+          await global.App.muatUlang(true);
+          global.Merek.terapkan();
+        }
       });
     }
   };

@@ -256,7 +256,9 @@
 
   /* ---------------- Avatar ---------------- */
   function avatar(nama, kelas) {
-    const warna = ['#69567e', '#0B0B0F', '#2563EB', '#16A34A', '#D97706', '#7B2FBE'];
+    // Semua warna di sini WAJIB ≥ 4,5:1 terhadap teks putih inisial.
+    // #16A34A (3,3:1) dan #D97706 (3,19:1) dulu dipakai dan tidak terbaca.
+    const warna = ['#69567e', '#0B0B0F', '#2563EB', '#0F7A37', '#B45309', '#7B2FBE'];
     const idx = String(nama || '').split('').reduce(function (a, c) { return a + c.charCodeAt(0); }, 0) % warna.length;
     return '<span class="avatar ' + (kelas || '') + '" style="background:' + warna[idx] + '">' +
       esc(Z.inisial(nama)) + '</span>';

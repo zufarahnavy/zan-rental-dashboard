@@ -331,6 +331,75 @@ Ada riwayat 10 versi dan tombol **Kembalikan ke bawaan** kalau terlanjur beranta
 
 ---
 
+## Bagian F — Menyesuaikan aplikasi dengan identitas Anda
+
+Semuanya ada di **Lainnya → Pengaturan**. Tidak perlu menyentuh kode sama sekali.
+
+### Logo, nama, dan favicon
+
+Unggah **logo** (tampil di bar atas, side-rail, dan layar masuk) dan **favicon**
+(ikon kecil di tab peramban). Keduanya opsional — kalau dikosongkan, aplikasi menggambar
+sendiri ikon dari huruf pertama nama dan warna aksen Anda.
+
+Nama dan subjudul di bar atas juga bisa diganti di sini.
+
+### Warna
+
+Ada beberapa preset siap pakai, atau pilih sendiri tiga warna:
+
+| Warna | Dipakai untuk |
+|---|---|
+| Aksi utama | tombol utama, menu aktif, FAB, sorotan |
+| Panel & grafik | kartu sapaan, batang grafik, aksen sekunder |
+| Teks & kontras | warna tulisan dan elemen gelap |
+
+Perubahannya langsung terlihat tanpa menyimpan dulu.
+
+> Aplikasi otomatis menjaga keterbacaan. Kalau Anda memilih aksen gelap, tulisan di
+> atasnya otomatis berubah jadi putih, dan aksen yang dipakai sebagai teks otomatis
+> diterangkan secukupnya. Jadi tidak ada kombinasi warna yang membuat teks hilang.
+
+### Font
+
+Pilih dari daftar yang tersedia. Hanya Poppins yang dipaketkan bersama aplikasi;
+pilihan lain memakai font bawaan perangkat, jadi tetap cepat dan tidak perlu internet.
+
+### Daftar perlengkapan sewa
+
+Atur sendiri daftar barang yang ikut disewakan (Helm SNI, Jas Hujan, Jas Sepatu, dan
+seterusnya) beserta jumlah bawaannya. Saat membuat order, Anda tinggal mencentang
+dan mengatur jumlahnya — dan perlengkapan itu **otomatis muncul di kwitansi PDF,
+struk thermal, dan draft pesan WhatsApp**.
+
+### Template kwitansi
+
+Atur blok mana yang tampil di kwitansi (kop, data penyewa, rincian biaya, perlengkapan,
+QR verifikasi, catatan kaki), judul dokumen, dan ukuran kertas. Ada pratinjau langsung.
+
+### Draft pesan WhatsApp
+
+Ubah isi tiap jenis pesan — konfirmasi booking, pengingat kembali, ucapan terima kasih,
+penagihan denda. Daftar variabel yang bisa dipakai (`{nama}`, `{motor}`, `{tanggal}`,
+`{total}`, dan lainnya) tampil di samping kotak isian, lengkap dengan tombol
+**Kembalikan ke bawaan** kalau hasil suntingan terlanjur berantakan.
+
+---
+
+## Bagian G — Menghapus banyak data sekaligus
+
+Di menu **Order**, **Armada**, dan **Pelanggan** ada tombol **Pilih**. Setelah ditekan,
+setiap kartu mendapat kotak centang dan muncul bar aksi di bawah.
+
+Aplikasi menolak penghapusan yang akan merusak riwayat:
+
+* **Unit** yang sedang disewa tidak bisa dihapus.
+* **Pelanggan** yang punya riwayat order tidak bisa dihapus.
+* **Order** yang dihapus ikut membuang baris keuangan yang terkait, supaya laporan tetap cocok.
+
+Yang dilewati akan disebutkan jumlah dan alasannya setelah proses selesai.
+
+---
+
 ## Cara memperbarui aplikasi nanti
 
 Kalau ada perbaikan berkas frontend, dari folder kerja jalankan tiga perintah:

@@ -331,6 +331,40 @@
     });
   }
 
+  /**
+   * Dialog isian singkat — dipakai untuk hal kecil seperti menambah nama
+   * perlengkapan. Mengembalikan Promise berisi teks, atau '' bila dibatalkan.
+   */
+  function tanya(opsi) {
+    return new Promise(function (selesai) {
+      const wrap = Sheet.buka({
+        judul: opsi.judul || 'Isi data',
+        ikon: opsi.ikon || 'pensil',
+        isi: '<div class="field" style="margin:0">' +
+               (opsi.label ? '<label for="zPrompt">' + esc(opsi.label) + '</label>' : '') +
+               '<input class="inp" id="zPrompt" autocomplete="off" maxlength="' + (opsi.maks || 60) + '" ' +
+               'placeholder="' + esc(opsi.placeholder || '') + '" value="' + esc(opsi.nilai || '') + '">' +
+             '</div>',
+        aksi: '<button class="btn btn-netral" data-k="batal">Batal</button>' +
+              '<button class="btn btn-utama" data-k="ya">' + esc(opsi.ya || 'Simpan') + '</button>'
+      });
+      const inp = $('#zPrompt', wrap);
+      let sudah = false;
+      function tutup(nilai) { if (sudah) return; sudah = true; Sheet.tutup(); selesai(nilai); }
+      if (inp) {
+        setTimeout(function () { inp.focus(); }, 120);
+        inp.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); tutup(inp.value); }
+        });
+      }
+      $$('[data-k]', wrap).forEach(function (b) {
+        b.addEventListener('click', function () {
+          tutup(b.getAttribute('data-k') === 'ya' && inp ? inp.value : '');
+        });
+      });
+    });
+  }
+
   /* ---------------- Ikon SVG ---------------- */
   const PATH = {
     beranda: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/>',
@@ -571,7 +605,7 @@
     bulanId: bulanId, selisihHari: selisihHari, tambahHari: tambahHari, relatif: relatif, jamDari: jamDari,
     hp08: hp08, hp62: hp62, hpCantik: hpCantik, inisial: inisial, terbilang: terbilang, parseTgl: parseTgl,
     BULAN: BULAN, BULAN_P: BULAN_P, HARI: HARI, HARI_P: HARI_P,
-    Simpan: Simpan, Api: Api, Perf: Perf, toast: toast, Sheet: Sheet, konfirmasi: konfirmasi,
+    Simpan: Simpan, Api: Api, Perf: Perf, toast: toast, Sheet: Sheet, konfirmasi: konfirmasi, tanya: tanya,
     Ikon: Ikon, fotoUnit: fotoUnit, elDari: elDari, campur: campur,
     qrDataUrl: qrDataUrl, qrPngDataUrl: qrPngDataUrl, Aktivitas: Aktivitas, siapDeploy: siapDeploy
   };

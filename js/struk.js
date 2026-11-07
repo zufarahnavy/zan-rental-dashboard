@@ -555,7 +555,11 @@
       PELANGGAN_WA: Z.hp08(p.wa),
       UNIT: u.nama || '-',
       PLAT: u.plat || '-',
-      FASILITAS: u.fasilitas || '2 Helm SNI',
+      // Perlengkapan yang dicentang pada order ini; kalau order lama belum
+      // punya datanya, pakai fasilitas bawaan unit sebagai cadangan.
+      FASILITAS: ((o.perlengkapan || []).map(function (x) { return (x.j || 1) + ' ' + x.n; }).join(', '))
+        || u.fasilitas || '2 Helm SNI',
+      PERLENGKAPAN: ((o.perlengkapan || []).map(function (x) { return (x.j || 1) + ' ' + x.n; }).join(', ')) || '',
       AMBIL: Z.tglId(o.mulai) + ' ' + (o.jamMulai || ''),
       KEMBALI: Z.tglId(o.kembali) + ' ' + (o.jamKembali || ''),
       DURASI: o.durasi,

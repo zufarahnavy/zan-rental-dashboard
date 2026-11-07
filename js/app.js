@@ -7,6 +7,158 @@
   'use strict';
   const Z = global.ZAN, U = global.UI, esc = Z.esc, Hal = global.Hal;
 
+  /* ================================================================
+   * MEREK — logo, warna, dan font yang bisa diatur pemilik.
+   *
+   * Nilainya datang dari sheet Pengaturan lewat payload boot, lalu
+   * diterapkan sebagai custom property CSS. Karena seluruh stylesheet
+   * memakai var(--kuning), var(--ink), dan var(--ungu), mengganti tiga
+   * nilai di sini langsung mengubah warna seluruh aplikasi.
+   * ================================================================ */
+  /* Hanya font yang tersedia TANPA mengunduh apa pun dari luar: Poppins ikut
+     dipaketkan di folder fonts/, sisanya memakai font bawaan perangkat. */
+  const FONT_TERSEDIA = {
+    Poppins:  'Poppins, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    Sistem:   'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    Bulat:    'ui-rounded, "SF Pro Rounded", "Segoe UI Variable Display", Nunito, system-ui, sans-serif',
+    Serif:    'Georgia, "Times New Roman", "Noto Serif", serif'
+  };
+
+  const Merek = global.Merek = {
+    set: function (k, d) { return (App.set ? App.set(k, d) : d) || d; },
+    judul:    function () { return Merek.set('MEREK_JUDUL', 'ZAN Dashboard'); },
+    subjudul: function () { return Merek.set('MEREK_SUBJUDUL', 'Operasional'); },
+    logoUrl:  function () { return String(Merek.set('MEREK_LOGO', '') || '').trim(); },
+
+    /** Logo: gambar bila pemilik mengunggahnya, kalau tidak huruf awal nama. */
+    htmlLogo: function (kelas) {
+      const url = Merek.logoUrl();
+      const k = kelas || 'merek-logo';
+      if (url) return '<div class="' + k + ' ada-gambar"><img src="' + Z.esc(url) + '" alt="Logo" ' +
+        'onerror="this.parentNode.classList.remove(\'ada-gambar\');this.parentNode.textContent=\'' +
+        Z.esc((Merek.judul() || 'Z').charAt(0).toUpperCase()) + '\'"></div>';
+      return '<div class="' + k + '">' + Z.esc((Merek.judul() || 'Z').charAt(0).toUpperCase()) + '</div>';
+    },
+
+    /**
+     * Naikkan kecerahan sebuah warna ke tingkat tertentu sambil menjaga rona,
+     * supaya warna merek pemilik tetap terbaca di atas kanvas gelap.
+     * @param hex    warna sumber "#rrggbb"
+     * @param target kecerahan sasaran 0–1 (0,74 ≈ cukup kontras di kanvas gelap)
+     */
+    terangkan: function (hex, target) {
+      const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+      if (!m) return '#b79ad4';
+      let r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
+      const maks = Math.max(r, g, b), min = Math.min(r, g, b);
+      const l = (maks + min) / 2, d = maks - min;
+      let h = 0, s = 0;
+      if (d) {
+        s = l > 0.5 ? d / (2 - maks - min) : d / (maks + min);
+        if (maks === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        else if (maks === g) h = ((b - r) / d + 2) / 6;
+        else h = ((r - g) / d + 4) / 6;
+      }
+      const L = Math.max(target, l);                 // jangan pernah membuat lebih gelap
+      const S = Math.min(s, 0.55);                   // turunkan saturasi agar tidak menyilaukan
+      const c = (1 - Math.abs(2 * L - 1)) * S, x = c * (1 - Math.abs(((h * 6) % 2) - 1)), o = L - c / 2;
+      const t = h * 6;
+      const rgb = t < 1 ? [c, x, 0] : t < 2 ? [x, c, 0] : t < 3 ? [0, c, x]
+              : t < 4 ? [0, x, c] : t < 5 ? [x, 0, c] : [c, 0, x];
+      return '#' + rgb.map(function (v) {
+        return Math.round((v + o) * 255).toString(16).padStart(2, '0');
+      }).join('');
+    },
+
+    /** Luminансi relatif WCAG dari "#rrggbb". */
+    luminansi: function (hex) {
+      const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+      if (!m) return 1;
+      const k = [1, 2, 3].map(function (i) {
+        const v = parseInt(m[i], 16) / 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * k[0] + 0.7152 * k[1] + 0.0722 * k[2];
+    },
+
+    rasio: function (a, b) {
+      const x = Merek.luminansi(a), y = Merek.luminansi(b);
+      return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+    },
+
+    /** Hitam atau putih — mana pun yang lebih terbaca DI ATAS warna ini. */
+    kontrasAtas: function (hex) {
+      return Merek.rasio(hex, '#0B0B0F') >= Merek.rasio(hex, '#FFFFFF') ? '#0B0B0F' : '#FFFFFF';
+    },
+
+    /**
+     * Versi aksen yang terbaca sebagai TEKS di atas permukaan gelap.
+     * Acuannya #3F4247 — permukaan gelap paling TERANG yang bisa muncul setelah
+     * lapisan tembus pandang ditumpuk (mis. badge hitung di dalam chip aktif).
+     * Lolos di sana berarti lolos di semua permukaan gelap yang lebih pekat.
+     */
+    terbacaDiGelap: function (hex) {
+      let warna = hex;
+      for (let t = 0.5; t <= 0.95; t += 0.05) {
+        if (Merek.rasio(warna, '#3F4247') >= 4.5) return warna;
+        warna = Merek.terangkan(hex, t);
+      }
+      return warna;
+    },
+
+    /** Terapkan warna + font ke dokumen. Dipanggil setiap data boot berubah. */
+    terapkan: function () {
+      const r = document.documentElement;
+      const aksen = Merek.set('WARNA_AKSEN', '#FFE600');
+      const tinta = Merek.set('WARNA_TINTA', '#0B0B0F');
+      const kedua = Merek.set('WARNA_SEKUNDER', '#69567E');
+      // Ditulis ke --merek-*, BUKAN langsung ke --ink/--ungu. Inline style pada
+      // :root mengalahkan aturan html[data-tema="gelap"], jadi menulis --ink di
+      // sini dulu membuat seluruh teks mode gelap memakai tinta hitam pemilik
+      // di atas kanvas hitam (terukur 1,05:1 — praktis tak terlihat).
+      if (/^#[0-9a-f]{6}$/i.test(aksen)) {
+        r.style.setProperty('--kuning', aksen);
+        // Aksen dipakai di dua peran yang berlawanan: sebagai TEKS di atas
+        // permukaan gelap, dan sebagai LATAR yang ditimpa teks. Kuning bawaan
+        // aman di keduanya, tetapi aksen gelap pilihan pemilik (mis. biru tua)
+        // tidak — plat nomor, chip, dan tombol jadi tidak terbaca.
+        r.style.setProperty('--aksen-teks', Merek.terbacaDiGelap(aksen));
+        r.style.setProperty('--aksen-kontras', Merek.kontrasAtas(aksen));
+      }
+      if (/^#[0-9a-f]{6}$/i.test(tinta)) r.style.setProperty('--merek-tinta', tinta);
+      if (/^#[0-9a-f]{6}$/i.test(kedua)) {
+        r.style.setProperty('--merek-ungu', kedua);
+        // Versi terang dari warna sekunder pemilik, dipakai tema gelap supaya
+        // panel & grafik tetap berwarna merek tanpa kehilangan keterbacaan.
+        r.style.setProperty('--merek-ungu-terang', Merek.terangkan(kedua, 0.74));
+      }
+
+      const font = Merek.set('FONT_APP', 'Poppins');
+      r.style.setProperty('--font-app', FONT_TERSEDIA[font] || FONT_TERSEDIA.Poppins);
+
+      // Favicon: pakai unggahan pemilik, kalau tidak gambarkan ulang dari warna aksen
+      const fav = String(Merek.set('MEREK_FAVICON', '') || '').trim();
+      let el = document.querySelector('link[rel="icon"]');
+      if (!el) { el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); }
+      if (fav) el.href = fav;
+      else {
+        const huruf = (Merek.judul() || 'Z').charAt(0).toUpperCase();
+        el.href = 'data:image/svg+xml,' + encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
+          '<rect width="32" height="32" rx="8" fill="' + aksen + '"/>' +
+          '<text x="16" y="23" font-family="Poppins,Arial" font-size="20" font-weight="800" ' +
+          'text-anchor="middle" fill="' + tinta + '">' + huruf + '</text></svg>');
+      }
+
+      const nama = Z.$('#merekNama');
+      if (nama) nama.textContent = Merek.judul();
+      const sub = Z.$('#subJudul');
+      if (sub && !sub.dataset.dipakaiHalaman) sub.textContent = Merek.subjudul();
+    },
+
+    FONT: FONT_TERSEDIA
+  };
+
   const NAV = [
     { kunci: 'beranda',   ikon: 'beranda', teks: 'Beranda' },
     { kunci: 'order',     ikon: 'order',   teks: 'Order' },
@@ -48,6 +200,7 @@
       if (r.success) {
         App.data = r.data;
         Z.Simpan.taruh('boot', { at: Date.now(), data: r.data });
+        Merek.terapkan();          // pengaturan merek mungkin baru saja diubah
         App.render();
         return true;
       }
@@ -102,7 +255,21 @@
         console.error(e);
         html = U.kosong('alert', 'Terjadi kesalahan tampilan', e.message);
       }
-      main.innerHTML = '<div class="lajur" id="lajur">' + html + '</div>';
+      // Animasi masuk bertahap hanya diputar saat benar-benar BERPINDAH halaman.
+      // Kalau diputar pada setiap render ulang (mis. form order yang menghitung
+      // ulang total), seluruh isi layar berkedip tiap kali pengguna menyentuh isian.
+      const kunciHal = App.rute + '|' + ((App.param && App.param.id) || '');
+      const pindahHalaman = App._kunciHal !== kunciHal;
+      App._kunciHal = kunciHal;
+      // Bar "mode pilih" hidup di <body>, jadi harus dibersihkan sendiri setiap
+      // render; kalau tidak, ia tertinggal melayang saat pengguna pindah menu.
+      if (global.Pilih) {
+        global.Pilih.bersihkan();
+        if (pindahHalaman && global.Pilih.aktif && global.Pilih.hal !== App.rute) {
+          global.Pilih.aktif = false; global.Pilih.hal = ''; global.Pilih.set = {};
+        }
+      }
+      main.innerHTML = '<div class="lajur' + (pindahHalaman ? ' lajur-masuk' : '') + '" id="lajur">' + html + '</div>';
       const lajur = Z.$('#lajur', main);
       try { if (hal.setelah) hal.setelah(lajur, App.param); } catch (e) { console.error(e); }
       App.pasangAksiGlobal(lajur);
@@ -127,6 +294,12 @@
 
     /* ---------------- Aksi global (delegasi) ---------------- */
     pasangAksiGlobal: function (root) {
+      Z.$$('[data-pilih-mulai]', root).forEach(function (el) {
+        el.addEventListener('click', function (e) {
+          e.stopPropagation();
+          global.Pilih.mulai(el.getAttribute('data-pilih-mulai'));
+        });
+      });
       Z.$$('[data-nav]', root).forEach(function (el) {
         if (el._nav) return;
         el._nav = true;
@@ -264,7 +437,7 @@
     app.innerHTML =
       /* Rail desktop */
       '<aside class="rail">' +
-        '<div class="rail-logo">Z</div>' +
+        Merek.htmlLogo('rail-logo') +
         NAV.map(function (n) {
           return '<button class="rail-item" data-navitem="' + n.kunci + '" data-nav="' + n.kunci + '">' +
             Z.Ikon(n.ikon, 21) + '<span>' + esc(n.teks) + '</span></button>';
@@ -277,9 +450,9 @@
       /* Topbar */
       '<header class="topbar"><div class="topbar-in">' +
         '<div class="merek">' +
-          '<div class="merek-logo">Z</div>' +
-          '<div class="merek-teks"><div class="merek-nama">ZAN Dashboard</div>' +
-          '<div class="merek-sub" id="subJudul">Operasional</div></div>' +
+          Merek.htmlLogo() +
+          '<div class="merek-teks"><div class="merek-nama" id="merekNama">' + Z.esc(Merek.judul()) + '</div>' +
+          '<div class="merek-sub" id="subJudul">' + Z.esc(Merek.subjudul()) + '</div></div>' +
         '</div>' +
         '<div class="topbar-aksi">' +
           '<button class="ikon-btn" id="btnSegar" aria-label="Segarkan data">' + Z.Ikon('sinkron', 21) + '</button>' +
@@ -352,7 +525,7 @@
     app.className = 'login-bg';
     app.innerHTML =
       '<div class="kartu login-kartu anim">' +
-        '<div class="login-logo">Z</div>' +
+        Merek.htmlLogo('login-logo') +
         '<h1 class="t-hero" style="font-size:21px">ZAN Rental Operasional</h1>' +
         '<p class="t-sm t-var" style="margin-top:4px">Masukkan PIN 6 angka untuk masuk</p>' +
         (pesan ? '<div class="kotak kotak-warn" style="margin-top:13px;font-size:12px">' + esc(pesan) + '</div>' : '') +
@@ -365,7 +538,7 @@
             return '<button class="pin-tombol" data-pin="' + n + '">' + n + '</button>'; }).join('') +
           '<button class="pin-tombol" data-pin="hapus" aria-label="Hapus">' + Z.Ikon('panahKiri', 20) + '</button>' +
           '<button class="pin-tombol" data-pin="0">0</button>' +
-          '<button class="pin-tombol" data-pin="ok" style="background:var(--kuning);color:#0B0B0F">' +
+          '<button class="pin-tombol" data-pin="ok" style="background:var(--kuning);color:var(--aksen-kontras)">' +
             Z.Ikon('panah', 20) + '</button>' +
         '</div>' +
         '<div class="t-sm t-var" style="margin-top:18px;line-height:1.6">' +
@@ -437,7 +610,9 @@
    * MULAI
    * ================================================================ */
   function mulaiAplikasi() {
+    Merek.terapkan();          // warna & font dulu, supaya kerangka langsung tergambar benar
     gambarKerangka();
+    Merek.terapkan();          // lalu isi logo/judul pada kerangka yang baru ada
     const h = App.dariHash();
     App.rute = h.rute;
     App.param = h.param;
@@ -482,7 +657,7 @@
     if (!Z.siapDeploy()) {
       Z.$('#app').className = 'login-bg';
       Z.$('#app').innerHTML = '<div class="kartu login-kartu">' +
-        '<div class="login-logo" style="background:var(--danger);color:#fff">!</div>' +
+        '<div class="login-logo" style="background:var(--danger-isi);color:#fff">!</div>' +
         '<h1 class="t-judul">Alamat server belum diisi</h1>' +
         '<p class="t-sm t-var" style="margin-top:8px;line-height:1.7">Buka berkas <b>js/config.js</b> lalu ganti ' +
         '<code>GAS_URL</code> dengan URL Web App Apps Script Anda (yang diakhiri <code>/exec</code>).<br><br>' +

@@ -11,6 +11,163 @@
   const Hitung = global.Hitung = {};
 
   /* ================================================================
+   * MODE PILIH — hapus massal untuk Order, Armada, dan Pelanggan
+   *
+   * Dibuat satu kali lalu dipakai ketiga halaman. Checkbox tidak ditulis
+   * ke dalam markup kartu; ia DISISIPKAN ke kartu yang sudah ada saat mode
+   * pilih menyala. Dengan begitu tata letak kartu tidak perlu diubah dan
+   * tidak ada risiko merusak tampilan yang sudah benar.
+   * ================================================================ */
+  const Pilih = global.Pilih = {
+    aktif: false,
+    hal: '',
+    set: {},
+
+    jumlah: function () { return Object.keys(this.set).length; },
+
+    mulai: function (hal) {
+      this.aktif = true; this.hal = hal; this.set = {};
+      global.App.render();
+    },
+    selesai: function () {
+      this.aktif = false; this.hal = ''; this.set = {};
+      global.App.render();
+    },
+
+    /** Tombol "Pilih" untuk diselipkan di kepala halaman. */
+    tombol: function (hal) {
+      return '<button class="btn btn-kecil btn-netral" data-pilih-mulai="' + hal + '">' +
+        Z.Ikon('check', 15) + 'Pilih</button>';
+    },
+
+    /**
+     * Pasang mode pilih pada daftar yang sudah dirender.
+     * @param root  elemen halaman
+     * @param sel   pemilih kartu, mis. '[data-order]'
+     * @param atr   nama atribut pembawa id, mis. 'data-order'
+     * @param opsi  { nama, aksi, bolehHapus(id) }
+     */
+    pasang: function (root, sel, atr, opsi) {
+      const diri = this;
+      if (!this.aktif || this.hal !== opsi.hal) return;
+      root.classList.add('mode-pilih');
+
+      // Atribut yang sama juga dipakai tombol DI DALAM kartu ("Detail order"),
+      // jadi ambil hanya elemen terluar — kalau tidak, satu kartu bisa
+      // mendapat beberapa checkbox sekaligus.
+      const semua = Z.$$(sel, root).filter(function (el) { return el.getAttribute(atr); });
+      const kartu = semua.filter(function (el) {
+        return !semua.some(function (lain) { return lain !== el && lain.contains(el); });
+      });
+      kartu.forEach(function (el) {
+        const id = el.getAttribute(atr);
+        if (el.querySelector(':scope > .pilih-cek')) return;
+        el.classList.add('bisa-pilih');
+        const cek = document.createElement('label');
+        cek.className = 'pilih-cek';
+        cek.innerHTML = '<input type="checkbox" aria-label="Pilih ' + esc(id) + '"' +
+          (diri.set[id] ? ' checked' : '') + '>';
+        el.appendChild(cek);
+        if (diri.set[id]) el.classList.add('terpilih');
+
+        // Tangkap klik di fase CAPTURE supaya aksi asli kartu (buka detail)
+        // tidak ikut berjalan selama mode pilih menyala.
+        el.addEventListener('click', function (e) {
+          if (!diri.aktif) return;
+          e.preventDefault(); e.stopPropagation();
+          diri.toggle(id, el);
+        }, true);
+      });
+
+      this.gambarBar(root, kartu.length, opsi);
+    },
+
+    toggle: function (id, el) {
+      if (this.set[id]) delete this.set[id]; else this.set[id] = 1;
+      if (el) {
+        el.classList.toggle('terpilih', !!this.set[id]);
+        const cb = el.querySelector('.pilih-cek input');
+        if (cb) cb.checked = !!this.set[id];
+      }
+      this.perbaruiBar();
+    },
+
+    perbaruiBar: function () {
+      const n = this.jumlah();
+      const el = Z.$('#pilihJml');
+      if (el) el.textContent = n ? n + ' dipilih' : 'Belum ada yang dipilih';
+      const bh = Z.$('#pilihHapus');
+      if (bh) bh.disabled = !n;
+      const bs = Z.$('#pilihSemua');
+      if (bs) bs.textContent = n && n >= (this._tampil || 0) ? 'Kosongkan' : 'Pilih semua';
+    },
+
+    gambarBar: function (root, tampil, opsi) {
+      const diri = this;
+      this._tampil = tampil;
+      const lama = Z.$('#pilihBar');
+      if (lama) lama.remove();
+      const bar = document.createElement('div');
+      bar.id = 'pilihBar';
+      bar.className = 'pilih-bar';
+      bar.innerHTML =
+        '<div class="pilih-bar-kiri">' +
+          '<button class="ikon-btn" id="pilihTutup" aria-label="Keluar dari mode pilih">' + Z.Ikon('x', 19) + '</button>' +
+          '<div><div class="pilih-bar-n" id="pilihJml">Belum ada yang dipilih</div>' +
+          '<div class="t-sm t-var">' + esc(opsi.nama) + '</div></div>' +
+        '</div>' +
+        '<div class="pilih-bar-kanan">' +
+          '<button class="btn btn-kecil btn-netral" id="pilihSemua">Pilih semua</button>' +
+          '<button class="btn btn-kecil btn-bahaya" id="pilihHapus" disabled>' +
+            Z.Ikon('sampah', 15) + 'Hapus</button>' +
+        '</div>';
+      document.body.appendChild(bar);
+      requestAnimationFrame(function () { bar.classList.add('tampil'); });
+
+      Z.$('#pilihTutup').addEventListener('click', function () { diri.selesai(); });
+      Z.$('#pilihSemua').addEventListener('click', function () {
+        const semuaKartu = Z.$$('.bisa-pilih', root);
+        const penuh = diri.jumlah() >= semuaKartu.length;
+        diri.set = {};
+        if (!penuh) semuaKartu.forEach(function (el) { diri.set[el.getAttribute(opsi.atr)] = 1; });
+        semuaKartu.forEach(function (el) {
+          const on = !!diri.set[el.getAttribute(opsi.atr)];
+          el.classList.toggle('terpilih', on);
+          const cb = el.querySelector('.pilih-cek input');
+          if (cb) cb.checked = on;
+        });
+        diri.perbaruiBar();
+      });
+      Z.$('#pilihHapus').addEventListener('click', function () { diri.konfirmasiHapus(opsi); });
+      this.perbaruiBar();
+    },
+
+    konfirmasiHapus: function (opsi) {
+      const diri = this;
+      const ids = Object.keys(this.set);
+      if (!ids.length) return;
+      Z.konfirmasi({
+        judul: 'Hapus ' + ids.length + ' ' + opsi.nama + '?',
+        pesan: opsi.peringatan || ('Tindakan ini tidak bisa dibatalkan.'),
+        ya: 'Ya, hapus ' + ids.length, batal: 'Batal', bahaya: true
+      }).then(async function (setuju) {
+        if (!setuju) return;
+        const r = await global.App.kirim(opsi.aksi, { ids: ids });
+        if (!r.success) return;
+        diri.aktif = false; diri.hal = ''; diri.set = {};
+        await global.App.muatUlang(true);
+        global.App.render();
+      });
+    },
+
+    /** Dipanggil saat berpindah halaman agar bar tidak tertinggal. */
+    bersihkan: function () {
+      const bar = Z.$('#pilihBar');
+      if (bar) bar.remove();
+    }
+  };
+
+  /* ================================================================
    * HITUNGAN TURUNAN
    * ================================================================ */
   function D() { return global.App.data || {}; }
@@ -235,7 +392,7 @@
           Z.Ikon('kalender', 15) + '<span>' + esc(Z.tglPanjang(Z.hariIni())) + ' • Jember</span>' +
         '</div>' +
         '<div class="kotak" style="background:rgba(0,0,0,.22);margin-top:12px;color:#fff;font-size:12.5px;line-height:1.6">' +
-          '<b style="color:var(--kuning)">' + perhatian.filter(function (p) { return p.tipe === 'kembali'; }).length + '</b> motor kembali hari ini • ' +
+          '<b style="color:var(--aksen-teks)">' + perhatian.filter(function (p) { return p.tipe === 'kembali'; }).length + '</b> motor kembali hari ini • ' +
           '<b style="color:#ff9c9c">' + perhatian.filter(function (p) { return p.tipe === 'telat'; }).length + '</b> terlambat • ' +
           '<b>' + r.disewa + '</b> aktif di jalan' +
         '</div>' +
@@ -256,8 +413,8 @@
                      nilaiHtml: '<span>' + r.disewa + '</span><span class="t-sm t-var"> / ' + r.totalUnit + ' unit</span>',
                      bawah: '<div class="progress" style="height:7px;margin:7px 0 5px">' +
                        '<i style="width:' + (r.totalUnit ? r.disewa / r.totalUnit * 100 : 0) + '%;background:var(--ungu)"></i>' +
-                       '<i style="width:' + (r.totalUnit ? r.tersedia / r.totalUnit * 100 : 0) + '%;background:var(--ok)"></i>' +
-                       '<i style="width:' + (r.totalUnit ? r.servis / r.totalUnit * 100 : 0) + '%;background:var(--warn)"></i></div>' +
+                       '<i style="width:' + (r.totalUnit ? r.tersedia / r.totalUnit * 100 : 0) + '%;background:var(--ok-terang)"></i>' +
+                       '<i style="width:' + (r.totalUnit ? r.servis / r.totalUnit * 100 : 0) + '%;background:var(--warn-terang)"></i></div>' +
                        'Sewa ' + r.disewa + ' • Siap ' + r.tersedia + ' • Servis ' + r.servis,
                      aksi: 'armada' }) +
         U.kartuKpi({ label: 'Order Berjalan', nilai: r.berjalan + ' order', ikon: 'order', warna: 'info',
@@ -401,18 +558,18 @@
       const u = p.unitRef;
       const lewat = p.sisa < 0;
       return '<article class="kartu ord-kartu kartu-klik" data-unit="' + esc(u.id) + '">' +
-        '<div class="ord-pita" style="background:' + (lewat ? 'var(--danger)' : 'var(--warn)') + '"></div>' +
+        '<div class="ord-pita" style="background:' + (lewat ? 'var(--danger-terang)' : 'var(--warn-terang)') + '"></div>' +
         '<div class="ord-head">' + U.badge(lewat ? 'PAJAK TERLAMBAT' : 'PAJAK STNK', lewat ? 'danger' : 'warn', 'dokumen') +
         '<span class="plat">' + esc(u.plat) + '</span></div>' +
         '<div style="margin-top:8px"><div style="font-weight:700;font-size:14px">' + esc(u.nama) + '</div>' +
-        '<div class="t-sm" style="color:' + (lewat ? 'var(--danger)' : 'var(--warn)') + '">' +
+        '<div class="t-sm" style="color:' + (lewat ? 'var(--danger-terang)' : 'var(--warn-terang)') + '">' +
         (lewat ? 'Lewat ' + Math.abs(p.sisa) + ' hari dari jatuh tempo' : 'Jatuh tempo ' + Z.tglId(u.pajak) + ' (' + p.sisa + ' hari lagi)') +
         '</div></div></article>';
     }
     const u = p.unitRef;
     const lewat = p.sisa < 0;
     return '<article class="kartu ord-kartu kartu-klik" data-unit="' + esc(u.id) + '">' +
-      '<div class="ord-pita" style="background:' + (lewat ? 'var(--danger)' : 'var(--info)') + '"></div>' +
+      '<div class="ord-pita" style="background:' + (lewat ? 'var(--danger-terang)' : 'var(--info-terang)') + '"></div>' +
       '<div class="ord-head">' + U.badge('SERVIS BERKALA', lewat ? 'danger' : 'info', 'perkakas') +
       '<span class="plat">' + esc(u.plat) + '</span></div>' +
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px">' +
@@ -463,6 +620,7 @@
         '<div class="btn-grid" style="margin-top:12px">' +
         '<button class="btn btn-utama" data-nav="order-baru">' + Z.Ikon('plus', 18) + 'Buat Order Baru</button>' +
         '<button class="btn btn-netral" data-aksi="ekspor-order">' + Z.Ikon('unduh', 18) + 'Ekspor CSV</button></div>' +
+        '<div style="display:flex;justify-content:flex-end;margin-top:8px">' + Pilih.tombol('order') + '</div>' +
       '</section>';
 
       html += '<section class="grid4">' +
@@ -494,6 +652,11 @@
       return html;
     },
     setelah: function (root) {
+      Pilih.pasang(root, '[data-order]', 'data-order', {
+        hal: 'order', atr: 'data-order', nama: 'order', aksi: 'order.hapusBanyak',
+        peringatan: 'Order yang dihapus beserta baris keuangan yang menempel padanya akan hilang permanen. ' +
+                    'Unit yang terkunci oleh order ini akan kembali tersedia.'
+      });
       Z.$$('[data-filter-order]', root).forEach(function (b) {
         b.addEventListener('click', function () {
           Z.Simpan.taruh('orderFilter', b.getAttribute('data-filter-order'));
@@ -627,35 +790,109 @@
   /* ================================================================
    * HALAMAN: BUAT / UBAH ORDER
    * ================================================================ */
-  const FormOrder = { data: null };
+  const FormOrder = { data: null, idSumber: null, cariUnit: '' };
+
+  /* Daftar perlengkapan yang bisa dicentang — diatur pemilik di Pengaturan. */
+  function lengkapOpsi() {
+    try {
+      const a = JSON.parse(global.App.set('PERLENGKAPAN_OPSI', '[]') || '[]');
+      if (a && a.length) return a.map(function (x) { return { n: String(x.n || ''), j: Math.max(1, Z.num(x.j) || 1) }; })
+        .filter(function (x) { return x.n; });
+    } catch (e) {}
+    return [{ n: 'Helm SNI', j: 2 }, { n: 'Jas Hujan', j: 2 }, { n: 'Jas Sepatu', j: 1 }];
+  }
+  function lengkapCari(f, nama) {
+    for (let i = 0; i < f.perlengkapan.length; i++) if (f.perlengkapan[i].n === nama) return f.perlengkapan[i];
+    return null;
+  }
 
   Hal['order-baru'] = {
     judul: 'Buat Order', nav: 'order',
+
+    /* Angka turunan — satu sumber kebenaran, dipakai render awal & tiap pembaruan. */
+    hitung: function () {
+      const f = FormOrder.data;
+      const u = f.unit ? unit(f.unit) : null;
+      const durasi = Math.max(1, Z.selisihHari(f.mulai, f.kembali));
+      const hargaHari = u ? u.harga : 0;
+      const sewa = hargaHari * durasi;
+      const biayaAntar = f.antar ? Math.max(0, Z.num(f.biayaAntar)) : 0;
+      const total = Math.max(0, sewa + biayaAntar - Z.num(f.diskon));
+      return {
+        u: u, c: f.pelanggan ? pel(f.pelanggan) : null,
+        durasi: durasi, hargaHari: hargaHari, sewa: sewa, biayaAntar: biayaAntar, total: total,
+        tersedia: Hitung.unitTersedia(f.mulai, f.kembali, f.id)
+      };
+    },
+
+    /* Daftar unit (dipengaruhi tanggal + kotak cari). Kotak carinya sendiri
+       berada DI LUAR wadah ini supaya fokus mengetik tidak pernah hilang. */
+    htmlUnitList: function (h) {
+      const f = FormOrder.data;
+      const q = String(FormOrder.cariUnit || '').toLowerCase().trim();
+      const hasil = !q ? h.tersedia : h.tersedia.filter(function (x) {
+        return ((x.nama || '') + ' ' + (x.plat || '') + ' ' + (x.merek || '') + ' ' +
+                (x.tipe || '') + ' ' + (x.fasilitas || '')).toLowerCase().indexOf(q) >= 0;
+      });
+      if (!h.tersedia.length) {
+        return U.kosong('motor', 'Tidak ada unit bebas',
+          'Semua motor sudah dipesan pada rentang tanggal ini. Coba geser tanggalnya.');
+      }
+      if (!hasil.length) {
+        return U.kosong('cari', 'Tidak ada yang cocok',
+          'Tidak ada unit bebas yang cocok dengan "' + esc(FormOrder.cariUnit) + '".');
+      }
+      return hasil.map(function (x) { return pilihUnit(x, f.unit === x.id, h.durasi); }).join('');
+    },
+
+    htmlPerlengkapan: function () {
+      const f = FormOrder.data;
+      const opsi = lengkapOpsi();
+      // Item kustom yang pernah ditambahkan pemilik ikut ditampilkan
+      f.perlengkapan.forEach(function (p) {
+        if (!opsi.some(function (o) { return o.n === p.n; })) opsi.push({ n: p.n, j: p.j });
+      });
+      return opsi.map(function (o) {
+        const ada = lengkapCari(f, o.n);
+        const jml = ada ? ada.j : o.j;
+        return '<div class="lengkap-baris' + (ada ? ' on' : '') + '" data-lengkap="' + esc(o.n) + '">' +
+          '<label class="lengkap-cek">' +
+            '<input type="checkbox" data-lengkap-cek="' + esc(o.n) + '"' + (ada ? ' checked' : '') + '>' +
+            '<span class="lengkap-nama">' + esc(o.n) + '</span>' +
+          '</label>' +
+          '<div class="stepper" role="group" aria-label="Jumlah ' + esc(o.n) + '">' +
+            '<button type="button" class="stepper-b" data-lengkap-kurang="' + esc(o.n) + '" aria-label="Kurangi">−</button>' +
+            '<span class="stepper-n" data-lengkap-jml="' + esc(o.n) + '">' + jml + '</span>' +
+            '<button type="button" class="stepper-b" data-lengkap-tambah="' + esc(o.n) + '" aria-label="Tambah">+</button>' +
+          '</div></div>';
+      }).join('');
+    },
+
     render: function (param) {
       const edit = param && param.id ? orderById(param.id) : null;
       if (!FormOrder.data || FormOrder.idSumber !== (edit ? edit.id : '_baru')) {
         FormOrder.idSumber = edit ? edit.id : '_baru';
+        FormOrder.cariUnit = '';
+        const antarBawaan = Z.num(global.App.set('BIAYA_ANTAR', 20000));
         FormOrder.data = edit ? {
           id: edit.id, pelanggan: edit.pelanggan, unit: edit.unit, mulai: edit.mulai, jamMulai: edit.jamMulai,
           kembali: edit.kembali, jamKembali: edit.jamKembali, antar: edit.antar, alamatAntar: edit.alamatAntar,
+          biayaAntar: edit.biayaAntar !== undefined && edit.biayaAntar !== null ? Z.num(edit.biayaAntar) : antarBawaan,
           diskon: edit.diskon, deposit: edit.deposit, dibayar: edit.dibayar, metode: edit.metode,
-          catatan: edit.catatan, status: edit.status
+          catatan: edit.catatan, status: edit.status,
+          perlengkapan: (edit.perlengkapan || []).map(function (p) { return { n: p.n, j: Z.num(p.j) || 1 }; })
         } : {
           pelanggan: '', unit: '', mulai: Z.hariIni(), jamMulai: '09:00',
           kembali: Z.tambahHari(Z.hariIni(), 1), jamKembali: '09:00',
-          antar: false, alamatAntar: '', diskon: 0, deposit: 0, dibayar: 0, metode: 'Tunai', catatan: ''
+          antar: false, alamatAntar: '', biayaAntar: antarBawaan,
+          diskon: 0, deposit: 0, dibayar: 0, metode: 'Tunai', catatan: '',
+          perlengkapan: lengkapOpsi().slice(0, 2).map(function (o) { return { n: o.n, j: o.j }; })
         };
       }
+      if (!FormOrder.data.perlengkapan) FormOrder.data.perlengkapan = [];
       const f = FormOrder.data;
-      const c = f.pelanggan ? pel(f.pelanggan) : null;
-      const u = f.unit ? unit(f.unit) : null;
-      const durasi = Math.max(1, Z.selisihHari(f.mulai, f.kembali));
-      const hargaHari = u ? u.harga : 0;
-      const biayaAntar = f.antar ? Z.num(global.App.set('BIAYA_ANTAR', 20000)) : 0;
-      const sewa = hargaHari * durasi;
-      const total = Math.max(0, sewa + biayaAntar - Z.num(f.diskon));
-      const tersedia = Hitung.unitTersedia(f.mulai, f.kembali, f.id);
-
+      const h = this.hitung();
+      const c = h.c, u = h.u;
       const langkah = !c ? 1 : (!u ? 2 : 3);
 
       let html = '';
@@ -668,20 +905,147 @@
         '</div></section>';
 
       /* Stepper */
-      html += '<section class="kartu kartu-rapat"><div style="display:flex;align-items:center;justify-content:space-between;gap:4px">' +
-        step(1, 'Pelanggan', langkah > 1 ? 'selesai' : (langkah === 1 ? 'aktif' : '')) +
-        '<i style="flex:1;height:2px;border-radius:2px;background:' + (langkah > 1 ? 'var(--kuning)' : 'var(--c-high)') + '"></i>' +
-        step(2, 'Unit & Tanggal', langkah > 2 ? 'selesai' : (langkah === 2 ? 'aktif' : '')) +
-        '<i style="flex:1;height:2px;border-radius:2px;background:' + (langkah > 2 ? 'var(--kuning)' : 'var(--c-high)') + '"></i>' +
-        step(3, 'Biaya & Bayar', langkah === 3 ? 'aktif' : '') +
-        '</div></section>';
+      html += '<section class="kartu kartu-rapat"><div id="oStep">' + this.htmlStep(langkah) + '</div></section>';
 
       /* 1. Pelanggan */
       html += '<section class="kartu">' +
         '<div class="seksi-head"><div class="kiri"><span class="kpi-ikon">' + Z.Ikon('orang', 17) + '</span>' +
-        '<div><div style="font-weight:700">Informasi Pelanggan</div><div class="t-sm t-var">Pilih kontak atau buat baru</div></div></div></div>';
+        '<div><div style="font-weight:700">Informasi Pelanggan</div><div class="t-sm t-var">Pilih kontak atau buat baru</div></div></div></div>' +
+        '<div id="oPelanggan">' + this.htmlPelanggan(c) + '</div></section>';
+
+      /* 2. Tanggal */
+      html += '<section class="kartu">' +
+        '<div class="seksi-head"><div class="kiri"><span class="kpi-ikon">' + Z.Ikon('kalender', 17) + '</span>' +
+        '<div><div style="font-weight:700">Durasi & Jadwal Sewa</div><div class="t-sm t-var">Waktu pengambilan dan pengembalian</div></div></div></div>' +
+        '<div class="grid2" style="margin-top:11px">' +
+          '<div class="field" style="margin:0"><label>Mulai sewa</label>' +
+            '<input class="inp" type="date" data-f="mulai" value="' + esc(f.mulai) + '">' +
+            '<input class="inp" type="time" data-f="jamMulai" value="' + esc(f.jamMulai) + '" style="margin-top:6px"></div>' +
+          '<div class="field" style="margin:0"><label>Selesai sewa</label>' +
+            '<input class="inp" type="date" data-f="kembali" value="' + esc(f.kembali) + '" min="' + esc(Z.tambahHari(f.mulai, 1)) + '">' +
+            '<input class="inp" type="time" data-f="jamKembali" value="' + esc(f.jamKembali) + '" style="margin-top:6px"></div>' +
+        '</div>' +
+        '<div class="pita-durasi">' +
+          '<span style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px">' + Z.Ikon('jam', 18) + 'Total durasi sewa</span>' +
+          '<span class="pita-durasi-n" id="nDurasi">' + h.durasi + ' hari (' + (h.durasi * 24) + ' jam)</span></div>';
+
+      /* Antar-jemput — tarif bisa diubah tiap order, boleh digratiskan */
+      if (global.App.set('FITUR_ANTAR', 'YA') === 'YA') {
+        html += '<div class="kotak" style="margin-top:11px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+            '<div style="display:flex;align-items:center;gap:9px;min-width:0">' +
+              '<span class="kpi-ikon" style="width:30px;height:30px;border-radius:9px">' + Z.Ikon('lokasi', 16) + '</span>' +
+              '<div><div style="font-weight:600;font-size:12.5px">Layanan Antar-Jemput</div>' +
+              '<div class="t-sm t-var" style="font-size:10.5px">Motor diantar ke lokasi pelanggan</div></div></div>' +
+            '<label class="switch"><input type="checkbox" data-f="antar"' + (f.antar ? ' checked' : '') + '><i></i></label>' +
+          '</div>' +
+          '<div id="oAntarDetail" style="margin-top:9px' + (f.antar ? '' : ';display:none') + '">' +
+            '<div class="field" style="margin:0"><label>Alamat antar / jemput</label>' +
+              '<input class="inp" data-f="alamatAntar" placeholder="Contoh: Stasiun Jember, pintu keluar barat" value="' + esc(f.alamatAntar) + '"></div>' +
+            '<div class="field" style="margin:9px 0 0"><label>Tarif antar-jemput order ini</label>' +
+              '<div class="inp-rp"><span>Rp</span>' +
+                '<input type="number" data-f="biayaAntar" min="0" step="5000" value="' + Z.num(f.biayaAntar) + '" placeholder="0"></div>' +
+              '<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
+                '<button type="button" class="chip" data-antar-cepat="0">Gratis</button>' +
+                '<button type="button" class="chip" data-antar-cepat="10000">Rp 10rb</button>' +
+                '<button type="button" class="chip" data-antar-cepat="20000">Rp 20rb</button>' +
+                '<button type="button" class="chip" data-antar-cepat="' + Z.num(global.App.set('BIAYA_ANTAR', 20000)) + '">Tarif standar</button>' +
+              '</div>' +
+              '<div class="t-sm t-var" style="margin-top:6px">Isi <b>0</b> bila digratiskan — kwitansi akan menulis “Gratis”.</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }
+      html += '</section>';
+
+      /* 3. Unit + pencarian */
+      html += '<section class="kartu">' +
+        '<div class="seksi-head"><div class="kiri"><span class="kpi-ikon">' + Z.Ikon('motor', 17) + '</span>' +
+        '<div><div style="font-weight:700">Pilih Unit Motor</div><div class="t-sm t-var">Ketersediaan nyata pada tanggal tersebut</div></div></div>' +
+        '<span class="badge badge-netral" id="oUnitJml">' + h.tersedia.length + ' unit</span></div>' +
+        '<div class="cari" style="margin-top:11px">' + Z.Ikon('cari', 18) +
+          '<input id="oCariUnit" placeholder="Cari nama motor atau plat (P …)" autocomplete="off" value="' + esc(FormOrder.cariUnit) + '">' +
+          '<button type="button" class="cari-x" id="oCariUnitX" aria-label="Hapus pencarian"' +
+            (FormOrder.cariUnit ? '' : ' hidden') + '>' + Z.Ikon('x', 15) + '</button></div>' +
+        '<div id="oUnitList" class="daftar-unit">' + this.htmlUnitList(h) + '</div></section>';
+
+      /* 4. Perlengkapan dibawa */
+      html += '<section class="kartu">' +
+        '<div class="seksi-head"><div class="kiri"><span class="kpi-ikon">' + Z.Ikon('perisai', 17) + '</span>' +
+        '<div><div style="font-weight:700">Perlengkapan Dibawa</div>' +
+        '<div class="t-sm t-var">Ikut tercetak di kwitansi, struk, dan pesan WA</div></div></div>' +
+        '<span class="badge badge-netral" id="oLengkapJml">' + f.perlengkapan.length + ' item</span></div>' +
+        '<div id="oLengkap" class="lengkap-daftar">' + this.htmlPerlengkapan() + '</div>' +
+        '<button type="button" class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" data-aksi="lengkap-baru">' +
+          Z.Ikon('plus', 16) + 'Tambah perlengkapan lain</button>' +
+      '</section>';
+
+      /* 5. Biaya */
+      html += '<section class="kartu">' +
+        '<div class="seksi-head"><div class="kiri"><span class="kpi-ikon">' + Z.Ikon('dompet', 17) + '</span>' +
+        '<div><div style="font-weight:700">Rincian Biaya & Deposit</div><div class="t-sm t-var">Perhitungan otomatis</div></div></div></div>' +
+        '<div class="kotak" style="margin-top:11px">' +
+          '<div class="baris"><span class="baris-l" id="nSewaLabel">Sewa ' + h.durasi + ' hari × ' + Z.rp(h.hargaHari) + '</span>' +
+            '<span class="baris-n" id="nSewa">' + Z.rp(h.sewa) + '</span></div>' +
+          '<div class="baris" id="nAntarBaris"' + (f.antar ? '' : ' hidden') + '>' +
+            '<span class="baris-l">Layanan antar-jemput</span>' +
+            '<span class="baris-n" id="nAntar">' + (h.biayaAntar ? Z.rp(h.biayaAntar) : 'Gratis') + '</span></div>' +
+          '<div class="baris"><span class="baris-l">Diskon</span><span class="baris-n">' +
+            '<input class="inp inp-angka-kecil" type="number" data-f="diskon" value="' + Z.num(f.diskon) + '" min="0" step="5000"></span></div>' +
+          '<div class="baris-catat" id="nDiskonPeringatan" hidden>' + Z.Ikon('alert', 14) +
+            '<span>Diskon melebihi subtotal — total dibulatkan ke Rp 0.</span></div>' +
+          (global.App.set('FITUR_DEPOSIT', 'YA') === 'YA' ?
+            '<div class="baris"><span class="baris-l">Deposit jaminan</span><span class="baris-n">' +
+            '<input class="inp inp-angka-kecil" type="number" data-f="deposit" value="' + Z.num(f.deposit) + '" min="0" step="10000"></span></div>' : '') +
+          '<div class="baris baris-total"><span class="baris-l" style="font-weight:600;color:var(--teks)">Total tagihan</span>' +
+            '<span class="baris-n" id="nTotalBaris">' + Z.rp(h.total) + '</span></div>' +
+        '</div>' +
+        '<div class="kartu-gelap" style="border-radius:16px;padding:14px;margin-top:11px;display:flex;' +
+          'align-items:center;justify-content:space-between;gap:10px">' +
+          '<div><div class="t-cap" style="opacity:.7">TOTAL TAGIHAN</div>' +
+          '<div class="t-sm" style="opacity:.65" id="nHeroKet">Termasuk BBM awal & perlengkapan</div></div>' +
+          '<div class="t-hero" style="color:var(--aksen-teks)" id="nTotalHero">' + Z.rp(h.total) + '</div></div>' +
+        '<div class="field" style="margin-top:13px"><label>Pembayaran diterima sekarang</label>' +
+          '<div class="inp-rp"><span>Rp</span><input type="number" data-f="dibayar" value="' + Z.num(f.dibayar) +
+          '" min="0" step="10000" placeholder="0"></div>' +
+          '<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
+            '<button type="button" class="chip" data-bayar="0">Belum bayar</button>' +
+            '<button type="button" class="chip" data-bayar="100000">DP 100rb</button>' +
+            '<button type="button" class="chip" id="chipLunas" data-bayar="' + h.total + '">Lunas ' + Z.rpSingkat(h.total) + '</button>' +
+          '</div></div>' +
+        '<div class="field"><label>Metode pembayaran</label>' +
+          '<div class="pilih-grid" id="oMetode">' +
+            ['Tunai', 'Transfer BCA', 'QRIS', 'Lainnya'].map(function (m) {
+              return '<button type="button" class="pilih' + (f.metode === m ? ' on' : '') + '" data-metode="' + esc(m) + '">' +
+                '<span class="j">' + esc(m) + '</span></button>';
+            }).join('') + '</div></div>' +
+        '<div class="field" style="margin-bottom:0"><label>Catatan kondisi unit / permintaan</label>' +
+          '<textarea class="ta" data-f="catatan" maxlength="300" placeholder="Contoh: bensin 3 bar, diantar tepat jam 9 pagi…">' +
+          esc(f.catatan) + '</textarea></div>' +
+      '</section>';
+
+      html += '<section class="kartu" style="position:sticky;bottom:12px;z-index:5">' +
+        '<div id="oAksi">' + this.htmlAksi(!!c && !!u, f.id) + '</div>' +
+        '<div class="t-sm t-var" style="text-align:center;margin-top:9px;display:flex;align-items:center;' +
+          'justify-content:center;gap:6px">' + Z.Ikon('wa', 13) +
+          'Draft konfirmasi WhatsApp otomatis disiapkan setelah disimpan</div>' +
+      '</section>';
+
+      return html;
+    },
+
+    htmlStep: function (langkah) {
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px">' +
+        step(1, 'Pelanggan', langkah > 1 ? 'selesai' : (langkah === 1 ? 'aktif' : '')) +
+        '<i style="flex:1;height:2px;border-radius:2px;background:' + (langkah > 1 ? 'var(--kuning)' : 'var(--c-high)') + '"></i>' +
+        step(2, 'Unit & Tanggal', langkah > 2 ? 'selesai' : (langkah === 2 ? 'aktif' : '')) +
+        '<i style="flex:1;height:2px;border-radius:2px;background:' + (langkah > 2 ? 'var(--kuning)' : 'var(--c-high)') + '"></i>' +
+        step(3, 'Biaya & Bayar', langkah === 3 ? 'aktif' : '') + '</div>';
+    },
+
+    htmlPelanggan: function (c) {
       if (c && c.id) {
-        html += '<div class="kotak" style="margin-top:11px;display:flex;flex-direction:column;gap:9px">' +
+        return '<div class="kotak" style="margin-top:11px;display:flex;flex-direction:column;gap:9px">' +
           '<div style="display:flex;align-items:center;gap:11px">' +
             U.avatar(c.nama) +
             '<div style="flex:1;min-width:0">' +
@@ -698,151 +1062,227 @@
             miniInfo('perisai', 'Status KYC', c.kyc || 'Belum', c.kyc === 'Lengkap' ? 'var(--ok)' : 'var(--warn)') +
             miniInfo('bintang', 'Riwayat sewa', c.totalSewa + 'x • ' + Z.rpSingkat(c.totalBelanja), '') +
           '</div></div>';
-      } else {
-        html += '<button class="btn btn-netral btn-blok" style="margin-top:11px" data-aksi="pilih-pelanggan">' +
-          Z.Ikon('cari', 18) + 'Pilih pelanggan terdaftar</button>' +
-          '<button class="btn btn-ink btn-blok" style="margin-top:8px" data-aksi="pelanggan-baru">' +
-          Z.Ikon('plus', 18) + 'Pelanggan baru</button>';
       }
-      html += '</section>';
+      return '<button class="btn btn-netral btn-blok" style="margin-top:11px" data-aksi="pilih-pelanggan">' +
+        Z.Ikon('cari', 18) + 'Pilih pelanggan terdaftar</button>' +
+        '<button class="btn btn-ink btn-blok" style="margin-top:8px" data-aksi="pelanggan-baru">' +
+        Z.Ikon('plus', 18) + 'Pelanggan baru</button>';
+    },
 
-      /* 2. Tanggal */
-      html += '<section class="kartu">' +
-        '<div class="seksi-head"><div class="kiri"><span class="kpi-ikon">' + Z.Ikon('kalender', 17) + '</span>' +
-        '<div><div style="font-weight:700">Durasi & Jadwal Sewa</div><div class="t-sm t-var">Waktu pengambilan dan pengembalian</div></div></div></div>' +
-        '<div class="grid2" style="margin-top:11px">' +
-          '<div class="field" style="margin:0"><label>Mulai sewa</label>' +
-            '<input class="inp" type="date" data-f="mulai" value="' + esc(f.mulai) + '">' +
-            '<input class="inp" type="time" data-f="jamMulai" value="' + esc(f.jamMulai) + '" style="margin-top:6px"></div>' +
-          '<div class="field" style="margin:0"><label>Selesai sewa</label>' +
-            '<input class="inp" type="date" data-f="kembali" value="' + esc(f.kembali) + '" min="' + esc(Z.tambahHari(f.mulai, 1)) + '">' +
-            '<input class="inp" type="time" data-f="jamKembali" value="' + esc(f.jamKembali) + '" style="margin-top:6px"></div>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--kuning);color:#0B0B0F;' +
-          'padding:11px 14px;border-radius:14px;margin-top:11px">' +
-          '<span style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px">' + Z.Ikon('jam', 18) + 'Total durasi sewa</span>' +
-          '<span style="background:#0B0B0F;color:#fff;padding:5px 13px;border-radius:999px;font-weight:700;font-size:12.5px">' +
-          durasi + ' hari (' + (durasi * 24) + ' jam)</span></div>';
-
-      if (global.App.set('FITUR_ANTAR', 'YA') === 'YA') {
-        html += '<div class="kotak" style="margin-top:11px">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
-            '<div style="display:flex;align-items:center;gap:9px;min-width:0">' +
-              '<span class="kpi-ikon" style="width:30px;height:30px;border-radius:9px">' + Z.Ikon('lokasi', 16) + '</span>' +
-              '<div><div style="font-weight:600;font-size:12.5px">Layanan Antar-Jemput</div>' +
-              '<div class="t-sm t-var" style="font-size:10.5px">Motor diantar ke lokasi pelanggan</div></div></div>' +
-            '<label class="switch"><input type="checkbox" data-f="antar"' + (f.antar ? ' checked' : '') + '><i></i></label>' +
-          '</div>' +
-          (f.antar ? '<div style="display:flex;align-items:center;gap:8px;background:var(--kartu);border-radius:11px;padding:8px 11px;margin-top:9px">' +
-            Z.Ikon('lokasi', 16) +
-            '<input class="inp" style="min-height:32px;padding:4px 0;background:transparent;border:0;flex:1" ' +
-            'data-f="alamatAntar" placeholder="Alamat antar unit…" value="' + esc(f.alamatAntar) + '">' +
-            '<span class="badge badge-netral">+' + Z.rp(biayaAntar) + '</span></div>' : '') +
-        '</div>';
-      }
-      html += '</section>';
-
-      /* 3. Unit */
-      html += '<section class="kartu">' +
-        '<div class="seksi-head"><div class="kiri"><span class="kpi-ikon">' + Z.Ikon('motor', 17) + '</span>' +
-        '<div><div style="font-weight:700">Pilih Unit Motor</div><div class="t-sm t-var">Ketersediaan nyata pada tanggal tersebut</div></div></div>' +
-        '<span class="badge badge-netral">' + tersedia.length + ' unit</span></div>' +
-        '<div style="display:flex;flex-direction:column;gap:9px;margin-top:11px;max-height:380px;overflow-y:auto">' +
-        (tersedia.length ? tersedia.map(function (x) { return pilihUnit(x, f.unit === x.id, durasi); }).join('')
-          : U.kosong('motor', 'Tidak ada unit bebas', 'Semua motor sudah dipesan pada rentang tanggal ini. Coba geser tanggal.')) +
-        '</div></section>';
-
-      /* 4. Biaya */
-      html += '<section class="kartu">' +
-        '<div class="seksi-head"><div class="kiri"><span class="kpi-ikon">' + Z.Ikon('dompet', 17) + '</span>' +
-        '<div><div style="font-weight:700">Rincian Biaya & Deposit</div><div class="t-sm t-var">Perhitungan otomatis</div></div></div></div>' +
-        '<div class="kotak" style="margin-top:11px">' +
-          U.baris('Sewa ' + durasi + ' hari × ' + Z.rp(hargaHari), Z.rp(sewa)) +
-          (f.antar ? U.baris('Layanan antar-jemput', Z.rp(biayaAntar)) : '') +
-          '<div class="baris"><span class="baris-l">Diskon</span><span class="baris-n">' +
-            '<input class="inp" type="number" data-f="diskon" value="' + Z.num(f.diskon) + '" min="0" step="5000" ' +
-            'style="min-height:34px;width:120px;text-align:right;padding:4px 9px;font-size:13px"></span></div>' +
-          (global.App.set('FITUR_DEPOSIT', 'YA') === 'YA' ?
-            '<div class="baris"><span class="baris-l">Deposit jaminan</span><span class="baris-n">' +
-            '<input class="inp" type="number" data-f="deposit" value="' + Z.num(f.deposit) + '" min="0" step="10000" ' +
-            'style="min-height:34px;width:120px;text-align:right;padding:4px 9px;font-size:13px"></span></div>' : '') +
-          '<div class="baris baris-total"><span class="baris-l" style="font-weight:600;color:var(--teks)">Total tagihan</span>' +
-            '<span class="baris-n">' + Z.rp(total) + '</span></div>' +
-        '</div>' +
-        '<div class="kartu-gelap" style="border-radius:16px;padding:14px;margin-top:11px;display:flex;' +
-          'align-items:center;justify-content:space-between;gap:10px">' +
-          '<div><div class="t-cap" style="opacity:.7">TOTAL TAGIHAN</div>' +
-          '<div class="t-sm" style="opacity:.65">Termasuk BBM awal & perlengkapan</div></div>' +
-          '<div class="t-hero" style="color:var(--kuning)">' + Z.rp(total) + '</div></div>' +
-        '<div class="field" style="margin-top:13px"><label>Pembayaran diterima sekarang</label>' +
-          '<div class="inp-rp"><span>Rp</span><input type="number" data-f="dibayar" value="' + Z.num(f.dibayar) +
-          '" min="0" step="10000" placeholder="0"></div>' +
-          '<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">' +
-            '<button class="chip" data-bayar="0">Belum bayar</button>' +
-            '<button class="chip" data-bayar="100000">DP 100rb</button>' +
-            '<button class="chip" data-bayar="' + total + '">Lunas ' + Z.rpSingkat(total) + '</button>' +
-          '</div></div>' +
-        '<div class="field"><label>Metode pembayaran</label>' +
-          '<div class="pilih-grid">' +
-            ['Tunai', 'Transfer BCA', 'QRIS', 'Lainnya'].map(function (m) {
-              return '<button class="pilih' + (f.metode === m ? ' on' : '') + '" data-metode="' + esc(m) + '">' +
-                '<span class="j">' + esc(m) + '</span></button>';
-            }).join('') + '</div></div>' +
-        '<div class="field" style="margin-bottom:0"><label>Catatan kondisi unit / permintaan</label>' +
-          '<textarea class="ta" data-f="catatan" maxlength="300" placeholder="Contoh: bensin 3 bar, helm hitam 2 pcs, diantar tepat jam 9 pagi…">' +
-          esc(f.catatan) + '</textarea></div>' +
-      '</section>';
-
-      html += '<section class="kartu" style="position:sticky;bottom:12px;z-index:5">' +
-        '<button class="btn btn-utama btn-blok" data-aksi="simpan-order"' + (!c || !u ? ' disabled' : '') + '>' +
-        Z.Ikon('kirim', 18) + (f.id ? 'Simpan Perubahan' : 'Simpan & Mulai Sewa') + '</button>' +
+    htmlAksi: function (siap, id) {
+      const off = siap ? '' : ' disabled';
+      return '<button class="btn btn-utama btn-blok" data-aksi="simpan-order"' + off + '>' +
+        Z.Ikon('kirim', 18) + (id ? 'Simpan Perubahan' : 'Simpan & Mulai Sewa') + '</button>' +
         '<div class="btn-grid" style="margin-top:9px">' +
-          '<button class="btn btn-kecil btn-netral" data-aksi="simpan-booking"' + (!c || !u ? ' disabled' : '') + '>' +
+          '<button class="btn btn-kecil btn-netral" data-aksi="simpan-booking"' + off + '>' +
           Z.Ikon('kalender', 15) + 'Simpan sebagai Booking</button>' +
           '<button class="btn btn-kecil btn-netral" data-aksi="reset-order">' + Z.Ikon('sinkron', 15) + 'Reset form</button>' +
-        '</div>' +
-        '<div class="t-sm t-var" style="text-align:center;margin-top:9px;display:flex;align-items:center;' +
-          'justify-content:center;gap:6px">' + Z.Ikon('wa', 13) +
-          'Draft konfirmasi WhatsApp otomatis disiapkan setelah disimpan</div>' +
-      '</section>';
-
-      return html;
+        '</div>';
     },
+
+    /**
+     * Pembaruan BEDAH. Hanya menulis ulang angka dan daftar yang benar-benar
+     * berubah — tidak pernah menyentuh elemen <input>. Inilah sebabnya mengetik
+     * di kolom diskon atau tarif antar tidak lagi memutus fokus dan tidak berkedip.
+     */
+    segar: function (root, apa) {
+      apa = apa || {};
+      const diri = this, f = FormOrder.data, h = this.hitung();
+      const $ = function (s) { return Z.$(s, root); };
+      const set = function (sel, teks) { const e = $(sel); if (e) e.textContent = teks; };
+
+      set('#nDurasi', h.durasi + ' hari (' + (h.durasi * 24) + ' jam)');
+      set('#nSewaLabel', 'Sewa ' + h.durasi + ' hari × ' + Z.rp(h.hargaHari));
+      set('#nSewa', Z.rp(h.sewa));
+      set('#nAntar', h.biayaAntar ? Z.rp(h.biayaAntar) : 'Gratis');
+      set('#nTotalBaris', Z.rp(h.total));
+      set('#nTotalHero', Z.rp(h.total));
+      const barisAntar = $('#nAntarBaris');
+      if (barisAntar) barisAntar.hidden = !f.antar;
+      const detailAntar = $('#oAntarDetail');
+      if (detailAntar) detailAntar.style.display = f.antar ? '' : 'none';
+      const chip = $('#chipLunas');
+      if (chip) { chip.setAttribute('data-bayar', h.total); chip.textContent = 'Lunas ' + Z.rpSingkat(h.total); }
+      set('#oUnitJml', h.tersedia.length + ' unit');
+      set('#oLengkapJml', f.perlengkapan.length + ' item');
+
+      // Diskon yang melampaui subtotal dibulatkan ke 0 oleh perhitungan —
+      // katakan terus terang daripada membiarkan total diam-diam jadi Rp 0.
+      const peringatan = $('#nDiskonPeringatan');
+      if (peringatan) peringatan.hidden = Z.num(f.diskon) <= (h.sewa + h.biayaAntar);
+
+      const stepEl = $('#oStep');
+      if (stepEl) stepEl.innerHTML = this.htmlStep(!h.c ? 1 : (!h.u ? 2 : 3));
+
+      const aksiEl = $('#oAksi');
+      if (aksiEl) { aksiEl.innerHTML = this.htmlAksi(!!h.c && !!h.u, f.id); diri.ikatAksi(root); }
+
+      if (apa.pelanggan) {
+        const pe = $('#oPelanggan');
+        if (pe) { pe.innerHTML = this.htmlPelanggan(h.c); diri.ikatPelanggan(root); }
+      }
+      if (apa.unit) {
+        const ue = $('#oUnitList');
+        if (ue) { ue.innerHTML = this.htmlUnitList(h); diri.ikatUnit(root); }
+      }
+      if (apa.lengkap) {
+        const le = $('#oLengkap');
+        if (le) { le.innerHTML = this.htmlPerlengkapan(); diri.ikatLengkap(root); }
+      }
+    },
+
+    ikatUnit: function (root) {
+      const diri = this, f = FormOrder.data;
+      Z.$$('[data-unit-pilih]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          f.unit = b.getAttribute('data-unit-pilih');
+          diri.segar(root, { unit: true });
+        });
+      });
+    },
+
+    ikatPelanggan: function (root) {
+      const diri = this, f = FormOrder.data;
+      const gp = Z.$('[data-aksi="ganti-pelanggan"]', root) || Z.$('[data-aksi="pilih-pelanggan"]', root);
+      if (gp) gp.addEventListener('click', function () {
+        pilihPelangganSheet(function (id) { f.pelanggan = id; diri.segar(root, { pelanggan: true }); });
+      });
+      const pb = Z.$('[data-aksi="pelanggan-baru"]', root);
+      if (pb) pb.addEventListener('click', function () {
+        Hal.pelanggan.form(null, function (id) { f.pelanggan = id; diri.segar(root, { pelanggan: true }); });
+      });
+    },
+
+    ikatLengkap: function (root) {
+      const diri = this, f = FormOrder.data;
+      Z.$$('[data-lengkap-cek]', root).forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          const nama = cb.getAttribute('data-lengkap-cek');
+          const baris = cb.closest('.lengkap-baris');
+          if (cb.checked) {
+            const jml = Z.num((Z.$('[data-lengkap-jml="' + nama.replace(/"/g, '\\"') + '"]', root) || {}).textContent) || 1;
+            if (!lengkapCari(f, nama)) f.perlengkapan.push({ n: nama, j: jml });
+          } else {
+            f.perlengkapan = f.perlengkapan.filter(function (p) { return p.n !== nama; });
+          }
+          if (baris) baris.classList.toggle('on', cb.checked);
+          diri.segar(root, {});
+        });
+      });
+      function ubahJml(nama, delta) {
+        const el = Z.$('[data-lengkap-jml="' + nama.replace(/"/g, '\\"') + '"]', root);
+        if (!el) return;
+        let j = Math.min(20, Math.max(1, (Z.num(el.textContent) || 1) + delta));
+        el.textContent = j;                                   // hanya angkanya yang ditulis ulang
+        const ada = lengkapCari(f, nama);
+        if (ada) ada.j = j;
+        else {
+          const cb = Z.$('[data-lengkap-cek="' + nama.replace(/"/g, '\\"') + '"]', root);
+          if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change')); const a2 = lengkapCari(f, nama); if (a2) a2.j = j; }
+        }
+      }
+      Z.$$('[data-lengkap-tambah]', root).forEach(function (b) {
+        b.addEventListener('click', function () { ubahJml(b.getAttribute('data-lengkap-tambah'), 1); });
+      });
+      Z.$$('[data-lengkap-kurang]', root).forEach(function (b) {
+        b.addEventListener('click', function () { ubahJml(b.getAttribute('data-lengkap-kurang'), -1); });
+      });
+    },
+
+    ikatAksi: function (root) {
+      const simpan = Z.$('[data-aksi="simpan-order"]', root);
+      if (simpan) simpan.addEventListener('click', function () { simpanOrder('Berjalan'); });
+      const booking = Z.$('[data-aksi="simpan-booking"]', root);
+      if (booking) booking.addEventListener('click', function () { simpanOrder('Booking'); });
+      const reset = Z.$('[data-aksi="reset-order"]', root);
+      if (reset) reset.addEventListener('click', function () {
+        Z.konfirmasi({
+          judul: 'Reset form?', pesan: 'Semua isian pada form ini akan dikosongkan.',
+          ya: 'Ya, reset', bahaya: false
+        }).then(function (setuju) {
+          if (!setuju) return;
+          FormOrder.data = null; FormOrder.idSumber = null; FormOrder.cariUnit = '';
+          global.App.render();
+        });
+      });
+    },
+
     setelah: function (root) {
-      const f = FormOrder.data;
+      const diri = this, f = FormOrder.data;
 
       Z.$$('[data-f]', root).forEach(function (inp) {
         const k = inp.getAttribute('data-f');
         const ev = (inp.type === 'checkbox' || inp.type === 'date' || inp.type === 'time') ? 'change' : 'input';
         inp.addEventListener(ev, function () {
           f[k] = inp.type === 'checkbox' ? inp.checked : inp.value;
-          if (k === 'mulai' && f.kembali <= f.mulai) f.kembali = Z.tambahHari(f.mulai, 1);
-          if (['mulai', 'kembali', 'antar', 'diskon'].indexOf(k) >= 0) global.App.render();
+          if (k === 'mulai' && f.kembali <= f.mulai) {
+            f.kembali = Z.tambahHari(f.mulai, 1);
+            const ik = Z.$('[data-f="kembali"]', root);
+            if (ik) { ik.value = f.kembali; ik.min = Z.tambahHari(f.mulai, 1); }
+          }
+          // Hanya tanggal yang mengubah daftar ketersediaan unit.
+          diri.segar(root, { unit: k === 'mulai' || k === 'kembali' });
         });
       });
-      Z.$$('[data-unit-pilih]', root).forEach(function (b) {
-        b.addEventListener('click', function () { f.unit = b.getAttribute('data-unit-pilih'); global.App.render(); });
+
+      /* Pencarian unit — kotaknya di luar wadah daftar, jadi fokus tidak hilang. */
+      const cari = Z.$('#oCariUnit', root), cariX = Z.$('#oCariUnitX', root);
+      if (cari) {
+        let jeda = null;
+        cari.addEventListener('input', function () {
+          FormOrder.cariUnit = cari.value;
+          if (cariX) cariX.hidden = !cari.value;
+          clearTimeout(jeda);
+          jeda = setTimeout(function () { diri.segar(root, { unit: true }); }, 140);
+        });
+      }
+      if (cariX) cariX.addEventListener('click', function () {
+        FormOrder.cariUnit = ''; cari.value = ''; cariX.hidden = true;
+        diri.segar(root, { unit: true }); cari.focus();
       });
+
+      Z.$$('[data-antar-cepat]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          f.biayaAntar = Z.num(b.getAttribute('data-antar-cepat'));
+          const inp = Z.$('[data-f="biayaAntar"]', root);
+          if (inp) inp.value = f.biayaAntar;
+          diri.segar(root, {});
+        });
+      });
+
       Z.$$('[data-metode]', root).forEach(function (b) {
-        b.addEventListener('click', function () { f.metode = b.getAttribute('data-metode'); global.App.render(); });
+        b.addEventListener('click', function () {
+          f.metode = b.getAttribute('data-metode');
+          Z.$$('[data-metode]', root).forEach(function (x) { x.classList.toggle('on', x === b); });
+        });
       });
       Z.$$('[data-bayar]', root).forEach(function (b) {
-        b.addEventListener('click', function () { f.dibayar = Z.num(b.getAttribute('data-bayar')); global.App.render(); });
+        b.addEventListener('click', function () {
+          f.dibayar = Z.num(b.getAttribute('data-bayar'));
+          const inp = Z.$('[data-f="dibayar"]', root);
+          if (inp) inp.value = f.dibayar;
+        });
       });
-      const gp = Z.$('[data-aksi="ganti-pelanggan"]', root) || Z.$('[data-aksi="pilih-pelanggan"]', root);
-      if (gp) gp.addEventListener('click', function () { pilihPelangganSheet(function (id) { f.pelanggan = id; global.App.render(); }); });
-      const pb = Z.$('[data-aksi="pelanggan-baru"]', root);
-      if (pb) pb.addEventListener('click', function () {
-        Hal.pelanggan.form(null, function (id) { f.pelanggan = id; global.App.render(); });
+
+      const tambahLengkap = Z.$('[data-aksi="lengkap-baru"]', root);
+      if (tambahLengkap) tambahLengkap.addEventListener('click', function () {
+        Z.tanya({
+          judul: 'Tambah perlengkapan', label: 'Nama perlengkapan',
+          placeholder: 'Contoh: Box Belakang', maks: 40
+        }).then(function (nama) {
+          nama = String(nama || '').trim();
+          if (!nama) return;
+          if (lengkapCari(f, nama)) return Z.toast('“' + nama + '” sudah ada di daftar.', 'err');
+          f.perlengkapan.push({ n: nama, j: 1 });
+          diri.segar(root, { lengkap: true });
+          Z.toast('“' + nama + '” ditambahkan.');
+        });
       });
-      const reset = Z.$('[data-aksi="reset-order"]', root);
-      if (reset) reset.addEventListener('click', function () {
-        FormOrder.data = null; FormOrder.idSumber = null; global.App.render();
-      });
-      const simpan = Z.$('[data-aksi="simpan-order"]', root);
-      if (simpan) simpan.addEventListener('click', function () { simpanOrder('Berjalan'); });
-      const booking = Z.$('[data-aksi="simpan-booking"]', root);
-      if (booking) booking.addEventListener('click', function () { simpanOrder('Booking'); });
+
+      diri.ikatUnit(root);
+      diri.ikatPelanggan(root);
+      diri.ikatLengkap(root);
+      diri.ikatAksi(root);
     }
   };
 
@@ -884,7 +1324,7 @@
           '<div class="t-sm" style="color:var(--ungu);font-weight:600;margin-top:2px">' + Z.rpSingkat(u.harga * durasi) + '</div>' +
         '</div>' +
         '<span style="width:24px;height:24px;border-radius:50%;flex:none;display:grid;place-items:center;' +
-          'background:' + (terpilih ? 'var(--ink)' : 'var(--c-high)') + ';color:' + (terpilih ? 'var(--kuning)' : 'transparent') + '">' +
+          'background:' + (terpilih ? 'var(--ink)' : 'var(--c-high)') + ';color:' + (terpilih ? 'var(--aksen-teks)' : 'transparent') + '">' +
           Z.Ikon('check', 14) + '</span>' +
       '</div></button>';
   }
@@ -898,7 +1338,9 @@
     const r = await global.App.kirim('order.simpan', {
       id: f.id || '', pelanggan: f.pelanggan, unit: f.unit, mulai: f.mulai, jamMulai: f.jamMulai,
       kembali: f.kembali, jamKembali: f.jamKembali, hargaHari: u.harga, antar: f.antar,
-      alamatAntar: f.alamatAntar, biayaAntar: f.antar ? Z.num(global.App.set('BIAYA_ANTAR', 20000)) : 0,
+      alamatAntar: f.alamatAntar,
+      biayaAntar: f.antar ? Math.max(0, Z.num(f.biayaAntar)) : 0,
+      perlengkapan: (f.perlengkapan || []).map(function (p) { return { n: p.n, j: Z.num(p.j) || 1 }; }),
       diskon: Z.num(f.diskon), deposit: Z.num(f.deposit), dibayar: Z.num(f.dibayar),
       metode: f.metode, catatan: f.catatan, status: status
     });
@@ -984,7 +1426,8 @@
         '<span class="badge badge-ink">' + hitung.semua + ' motor</span></div>' +
         '<div class="btn-grid" style="margin-top:12px">' +
         '<button class="btn btn-utama" data-aksi="unit-baru">' + Z.Ikon('plus', 18) + 'Tambah Motor</button>' +
-        '<button class="btn btn-netral" data-aksi="ekspor-unit">' + Z.Ikon('unduh', 18) + 'Laporan CSV</button></div></section>';
+        '<button class="btn btn-netral" data-aksi="ekspor-unit">' + Z.Ikon('unduh', 18) + 'Laporan CSV</button></div>' +
+        '<div style="display:flex;justify-content:flex-end;margin-top:8px">' + Pilih.tombol('armada') + '</div></section>';
 
       html += '<section class="grid4">' +
         pilCounter('Total', hitung.semua, '') +
@@ -1019,6 +1462,10 @@
       return html;
     },
     setelah: function (root) {
+      Pilih.pasang(root, '[data-unit]', 'data-unit', {
+        hal: 'armada', atr: 'data-unit', nama: 'unit motor', aksi: 'unit.hapusBanyak',
+        peringatan: 'Unit yang masih punya order Booking atau Berjalan akan dilewati secara otomatis.'
+      });
       Z.$$('[data-filter-armada]', root).forEach(function (b) {
         b.addEventListener('click', function () {
           Z.Simpan.taruh('armadaFilter', b.getAttribute('data-filter-armada'));
@@ -1218,6 +1665,36 @@
   }
   global.kompresGambar = kompresGambar;
 
+  /**
+   * Varian PNG untuk logo & favicon: latar dibiarkan TRANSPARAN.
+   * JPEG akan memberi kotak putih di belakang logo — terlihat jelek pada
+   * bar atas gelap dan pada mode gelap.
+   */
+  async function kecilkanGambar(file, maksSisi) {
+    return new Promise(function (selesai, tolak) {
+      const reader = new FileReader();
+      reader.onerror = function () { tolak(new Error('berkas tidak terbaca')); };
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onerror = function () { tolak(new Error('format gambar tidak dikenali')); };
+        img.onload = function () {
+          const m = maksSisi || 320;
+          const skala = Math.min(1, m / Math.max(img.width, img.height));
+          const c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(img.width * skala));
+          c.height = Math.max(1, Math.round(img.height * skala));
+          const ctx = c.getContext('2d');
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          selesai(c.toDataURL('image/png'));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  global.kecilkanGambar = kecilkanGambar;
+
   /* ================================================================
    * HALAMAN: PELANGGAN (CRM)
    * ================================================================ */
@@ -1252,7 +1729,8 @@
         '<span class="badge badge-ink">' + hitung.semua + '</span></div>' +
         '<div class="btn-grid" style="margin-top:12px">' +
         '<button class="btn btn-utama" data-aksi="pelanggan-baru">' + Z.Ikon('orang', 18) + 'Tambah Pelanggan</button>' +
-        '<button class="btn btn-netral" data-aksi="ekspor-pelanggan">' + Z.Ikon('unduh', 18) + 'Ekspor Kontak</button></div></section>';
+        '<button class="btn btn-netral" data-aksi="ekspor-pelanggan">' + Z.Ikon('unduh', 18) + 'Ekspor Kontak</button></div>' +
+        '<div style="display:flex;justify-content:flex-end;margin-top:8px">' + Pilih.tombol('pelanggan') + '</div></section>';
 
       html += '<section class="grid2">' +
         U.kartuKpi({ label: 'Total Terdaftar', nilai: hitung.semua, ikon: 'orang', tagKanan: 'penyewa' }) +
@@ -1295,6 +1773,10 @@
       return html;
     },
     setelah: function (root) {
+      Pilih.pasang(root, '[data-pelanggan]', 'data-pelanggan', {
+        hal: 'pelanggan', atr: 'data-pelanggan', nama: 'pelanggan', aksi: 'pelanggan.hapusBanyak',
+        peringatan: 'Pelanggan yang sudah punya riwayat order akan dilewati agar laporan tetap utuh.'
+      });
       Z.$$('[data-filter-crm]', root).forEach(function (b) {
         b.addEventListener('click', function () {
           Z.Simpan.taruh('crmFilter', b.getAttribute('data-filter-crm'));
