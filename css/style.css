@@ -911,11 +911,11 @@ html[data-tema="gelap"] .pin-kotak i.isi { background: var(--kuning); }
   background: var(--c-low); border-radius: 14px; padding: 10px 11px;
 }
 .warna-kotak input[type="color"] {
-  width: 42px; height: 42px; flex: none; padding: 0; cursor: pointer;
-  border: 0; border-radius: 11px; background: transparent;
+  width: 44px; height: 44px; flex: none; padding: 0; cursor: pointer;
+  border: 0; border-radius: 12px; background: transparent;
 }
 .warna-kotak input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-.warna-kotak input[type="color"]::-webkit-color-swatch { border: 1px solid var(--outline-var); border-radius: 11px; }
+.warna-kotak input[type="color"]::-webkit-color-swatch { border: 1px solid var(--outline-var); border-radius: 12px; }
 .warna-kode { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; letter-spacing: .02em; }
 
 .preset-baris {
@@ -1134,3 +1134,64 @@ b, strong { font-weight: 700; }
 .lini-item.selesai .lini-judul { color: var(--teks); font-weight: 700; }
 .lini-waktu { font-size: 11.5px; color: var(--teks-var); margin-top: 1px; }
 .lini-ket   { font-size: 11.5px; color: var(--teks-var); margin-top: 3px; }
+
+/* =====================================================================
+   DAFTAR PILIHAN DALAM SHEET (menu "Ingatkan", dll.)
+   ===================================================================== */
+.pilih-list { display: flex; flex-direction: column; gap: 7px; }
+.pilih-baris {
+  display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  padding: 11px 12px; border-radius: 13px; cursor: pointer;
+  background: var(--c); border: 1px solid var(--c-highest); color: var(--teks);
+  transition: background .16s var(--ease), transform .16s var(--ease), border-color .16s var(--ease);
+}
+.pilih-baris:hover { background: var(--c-high); border-color: var(--outline-var); }
+.pilih-baris:active { transform: scale(.985); }
+.pilih-baris > svg:last-child { flex: none; color: var(--teks-var); opacity: .6; }
+
+/* Pola yang sama dengan pil navigasi: ubin aksen padat + glyph yang
+   kontrasnya dipilih otomatis, jadi tetap terbaca di tema terang & gelap. */
+.pilih-ikon {
+  flex: none; width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center;
+  background: var(--kuning); color: var(--aksen-kontras);
+}
+.pilih-teks { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pilih-teks b { font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+.pilih-teks span { font-size: 11.5px; color: var(--teks-var); line-height: 1.35; }
+@media (pointer: coarse) { .pilih-baris { padding: 13px 12px; } }
+
+/* Saklar "Wajib" pada pengaturan kotak foto serah terima */
+.pil-wajib {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 7px 10px; min-height: 38px; box-sizing: border-box;
+  border-radius: 10px; background: var(--c-high);
+  font-size: 11px; font-weight: 600; color: var(--teks-var); user-select: none;
+}
+.pil-wajib input { width: 16px; height: 16px; accent-color: var(--danger); margin: 0; }
+/* Seluruh label adalah area ketuknya, jadi tingginya yang dinaikkan di layar sentuh. */
+@media (pointer: coarse) { .pil-wajib { min-height: 44px; padding: 9px 11px; } }
+.pil-wajib:has(input:checked) { background: var(--danger-bg); color: var(--danger); }
+
+/* =====================================================================
+   PANDUAN UNGGAH GAMBAR — tertutup secara bawaan supaya form tetap ringkas
+   ===================================================================== */
+.panduan-unggah { margin-top: 8px; border-radius: 11px; background: var(--c-high); overflow: hidden; }
+.panduan-unggah > summary {
+  display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none;
+  padding: 9px 11px; min-height: 40px; box-sizing: border-box;
+  font-size: 11.5px; font-weight: 600; color: var(--teks-var);
+  -webkit-tap-highlight-color: transparent;
+}
+.panduan-unggah > summary::-webkit-details-marker { display: none; }
+.panduan-unggah > summary::after {
+  content: '▾'; margin-left: auto; font-size: 11px; transition: transform .18s var(--ease);
+}
+.panduan-unggah[open] > summary::after { transform: rotate(180deg); }
+.panduan-unggah > summary:hover { color: var(--teks); }
+.panduan-unggah ul { margin: 0; padding: 0 12px 2px 27px; }
+.panduan-unggah li { font-size: 11.5px; line-height: 1.55; color: var(--teks-var); margin-bottom: 5px; }
+.panduan-unggah p {
+  margin: 0; padding: 7px 12px 10px; font-size: 11px; line-height: 1.5;
+  color: var(--teks-var); border-top: 1px dashed var(--outline-var);
+}
+@media (pointer: coarse) { .panduan-unggah > summary { padding: 11px; min-height: 46px; } }

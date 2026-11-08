@@ -18,6 +18,57 @@
    * pilih menyala. Dengan begitu tata letak kartu tidak perlu diubah dan
    * tidak ada risiko merusak tampilan yang sudah benar.
    * ================================================================ */
+
+  /**
+   * Terapkan hasil hapus massal langsung ke App.data, tanpa memanggil server
+   * lagi. Server sudah mengirim ID persis yang berubah, jadi memuat ulang
+   * seluruh data di sini cuma menambah beberapa detik menunggu tanpa
+   * memberi informasi baru.
+   *
+   * @returns {boolean} false bila jawaban server tidak memuat rincian ID
+   *   (misalnya backend belum diperbarui) — pemanggil harus memuat ulang.
+   */
+  function terapkanHapus(data) {
+    if (!data || typeof data !== 'object') return false;
+    const D = global.App && global.App.data;
+    if (!D) return false;
+
+    const buang = function (arr, kunci, ids) {
+      if (!Array.isArray(arr) || !Array.isArray(ids) || !ids.length) return arr;
+      const set = {};
+      ids.forEach(function (i) { set[String(i)] = 1; });
+      return arr.filter(function (x) { return !set[String(x[kunci])]; });
+    };
+
+    let dikenali = false;
+
+    if (Array.isArray(data.idOrder)) {
+      dikenali = true;
+      D.pesanan = buang(D.pesanan, 'id', data.idOrder);
+      D.keuangan = buang(D.keuangan, 'id', data.idKeuangan || []);
+      // Unit yang order aktifnya ikut terhapus kembali bisa disewakan
+      (data.idUnitTersedia || []).forEach(function (uid) {
+        const u = (D.units || []).filter(function (x) { return x.id === uid; })[0];
+        if (u) u.status = 'Tersedia';
+      });
+      // Statistik pelanggan sudah dihitung ulang di server
+      const st = data.statPelanggan || {};
+      Object.keys(st).forEach(function (pid) {
+        const p = (D.pelanggan || []).filter(function (x) { return x.id === pid; })[0];
+        if (p) { p.totalSewa = st[pid].totalSewa; p.totalBelanja = st[pid].totalBelanja;
+                 p.terakhir = st[pid].terakhir; p.tag = st[pid].tag; }
+      });
+    }
+
+    if (Array.isArray(data.idUnit)) { dikenali = true; D.units = buang(D.units, 'id', data.idUnit); }
+    if (Array.isArray(data.idPelanggan)) { dikenali = true; D.pelanggan = buang(D.pelanggan, 'id', data.idPelanggan); }
+
+    // Simpanan lokal ikut diperbarui, supaya data yang dihapus tidak muncul
+    // lagi sekejap saat aplikasi dibuka berikutnya dari cache.
+    if (dikenali) { try { Z.Simpan.taruh('boot', { at: Date.now(), data: D }); } catch (e) {} }
+    return dikenali;
+  }
+
   const Pilih = global.Pilih = {
     aktif: false,
     hal: '',
@@ -142,6 +193,13 @@
       this.perbaruiBar();
     },
 
+    /**
+     * Terapkan hasil hapus massal ke data di layar tanpa memanggil server lagi.
+     * Mengembalikan false bila jawabannya tidak memuat rincian ID — pemanggil
+     * lalu memuat ulang seperti cara lama.
+     */
+    terapkanHapus: function (data) { return terapkanHapus(data); },
+
     konfirmasiHapus: function (opsi) {
       const diri = this;
       const ids = Object.keys(this.set);
@@ -152,10 +210,60 @@
         ya: 'Ya, hapus ' + ids.length, batal: 'Batal', bahaya: true
       }).then(async function (setuju) {
         if (!setuju) return;
-        const r = await global.App.kirim(opsi.aksi, { ids: ids });
-        if (!r.success) return;
+
+        // Menghapus banyak baris butuh beberapa detik di Google Sheets.
+        // Tanpa penanda sibuk, tombolnya terlihat seperti tidak bereaksi dan
+        // pemilik menekannya berkali-kali.
+        const tbl = Z.$('#pilihHapus');
+        const semula = tbl ? tbl.innerHTML : '';
+        let lama = null;
+        if (tbl) {
+          tbl.disabled = true;
+          tbl.innerHTML = Z.Ikon('sinkron', 16, 'putar') + 'Menghapus ' + ids.length + '…';
+          lama = setTimeout(function () {
+            if (tbl.disabled) tbl.innerHTML = Z.Ikon('sinkron', 16, 'putar') + 'Masih proses, tunggu sebentar…';
+          }, 3500);
+        }
+        const pulihkan = function () {
+          if (lama) clearTimeout(lama);
+          if (tbl) { tbl.disabled = false; tbl.innerHTML = semula; }
+        };
+
+        let r;
+        try {
+          r = await global.App.kirim(opsi.aksi, { ids: ids }, { diam: true });
+          // "Sistem sedang sibuk" artinya ada proses lain yang sedang menulis
+          // (biasanya pengirim notifikasi). Itu selalu sebentar, jadi dicoba
+          // lagi sendiri daripada melempar kegagalan ke pemilik. Jedanya
+          // dinaikkan tiap percobaan supaya tidak justru menambah rebutan.
+          const jeda = [1500, 4000];
+          for (let c = 0; c < jeda.length && r && !r.success && /sibuk/i.test(r.message || ''); c++) {
+            if (tbl) {
+              tbl.innerHTML = Z.Ikon('sinkron', 16, 'putar') +
+                'Server sibuk, mencoba lagi (' + (c + 1) + '/' + jeda.length + ')…';
+            }
+            await new Promise(function (s) { setTimeout(s, jeda[c]); });
+            r = await global.App.kirim(opsi.aksi, { ids: ids }, { diam: true });
+          }
+        } catch (e) {
+          r = { success: false, message: 'Koneksi terputus saat menghapus. Periksa jaringan lalu coba lagi.' };
+        }
+
+        if (!r || !r.success) {
+          pulihkan();
+          Z.toast((r && r.message) || 'Gagal menghapus.', 'err');
+          return;
+        }
+        if (lama) clearTimeout(lama);
+        Z.toast(r.message || (ids.length + ' ' + opsi.nama + ' dihapus.'));
         diri.aktif = false; diri.hal = ''; diri.set = {};
-        await global.App.muatUlang(true);
+
+        // Server mengembalikan persis apa yang berubah, jadi layar bisa
+        // diperbarui di tempat. Memuat ulang seluruh data dari Sheets di sini
+        // menambah ±7 pembacaan sheet dan beberapa detik menunggu, padahal
+        // tidak ada yang belum kita ketahui. Kalau bentuk jawabannya tak
+        // dikenali (backend versi lama), baru memuat ulang seperti dulu.
+        if (!terapkanHapus(r.data)) await global.App.muatUlang(true);
         global.App.render();
       });
     },
@@ -546,9 +654,8 @@
             '</div>' : '') +
         '</div>' +
         '<div class="btn-grid" style="margin-top:11px">' +
-          '<button class="btn btn-kecil btn-hijau" data-wa="' + esc(o.id) + '" data-wa-tipe="' +
-            (p.tipe === 'telat' ? 'TAGIH_TELAT' : (p.tipe === 'ambil' ? 'ORDER_BARU' : 'INGAT_KEMBALI')) + '">' +
-            Z.Ikon('wa', 15) + (p.tipe === 'telat' ? 'Tagih via WA' : 'Chat WA') + '</button>' +
+          '<button class="btn btn-kecil btn-hijau" data-wa="' + esc(o.id) + '" data-wa-tipe="MENU">' +
+            Z.Ikon('wa', 15) + (p.tipe === 'telat' ? 'Tagih via WA' : 'Ingatkan') + '</button>' +
           (p.tipe === 'kembali' || p.tipe === 'telat'
             ? '<button class="btn btn-kecil btn-utama" data-selesai="' + esc(o.id) + '">' + Z.Ikon('check', 15) + 'Selesaikan</button>'
             : '<button class="btn btn-kecil btn-netral" data-order="' + esc(o.id) + '">Detail order</button>') +
@@ -744,18 +851,18 @@
 
   function tombolOrder(o, s) {
     if (s === 'Terlambat') {
-      return '<button class="btn btn-kecil btn-hijau" data-wa="' + esc(o.id) + '" data-wa-tipe="TAGIH_TELAT">' +
-        Z.Ikon('wa', 15) + 'Tagih (WA)</button>' +
+      return '<button class="btn btn-kecil btn-hijau" data-wa="' + esc(o.id) + '" data-wa-tipe="MENU">' +
+        Z.Ikon('wa', 15) + 'Ingatkan</button>' +
         '<button class="btn btn-kecil btn-ink" data-selesai="' + esc(o.id) + '">Selesaikan / Denda</button>';
     }
     if (s === 'Berjalan') {
-      return '<button class="btn btn-kecil btn-hijau" data-wa="' + esc(o.id) + '" data-wa-tipe="INGAT_KEMBALI">' +
+      return '<button class="btn btn-kecil btn-hijau" data-wa="' + esc(o.id) + '" data-wa-tipe="MENU">' +
         Z.Ikon('wa', 15) + 'Ingatkan</button>' +
         '<button class="btn btn-kecil btn-utama" data-selesai="' + esc(o.id) + '">' + Z.Ikon('check', 15) + 'Selesaikan</button>';
     }
     if (s === 'Booking') {
-      return '<button class="btn btn-kecil btn-netral" data-wa="' + esc(o.id) + '" data-wa-tipe="ORDER_BARU">' +
-        Z.Ikon('kirim', 15) + 'Konfirmasi WA</button>' +
+      return '<button class="btn btn-kecil btn-netral" data-wa="' + esc(o.id) + '" data-wa-tipe="MENU">' +
+        Z.Ikon('wa', 15) + 'Ingatkan</button>' +
         '<button class="btn btn-kecil btn-ink" data-mulai="' + esc(o.id) + '">' + Z.Ikon('kunci', 15) + 'Serah Terima</button>';
     }
     return '<button class="btn btn-kecil btn-netral" data-kwitansi="' + esc(o.id) + '">' + Z.Ikon('dokumen', 15) + 'Kwitansi</button>' +
@@ -1579,6 +1686,11 @@
               ';border:2.5px solid ' + (artNow[2] === w ? 'var(--kuning)' : 'transparent') + '"></button>'; }).join('') + '</div>' +
           '<div class="bantu" style="margin-top:8px">Atau unggah foto asli unit:</div>' +
           '<input class="inp" type="file" accept="image/*" id="fotoUnitFile" style="margin-top:6px;padding:9px">' +
+          panduanUnggah([
+            'Ambil <b>mendatar (landscape)</b> — kartu armada berbentuk melebar, foto tegak akan terpotong atas-bawahnya.',
+            'Motor utuh dari <b>serong depan</b>, isi sekitar ¾ bingkai, latar polos dan terang.',
+            'Hindari foto gelap atau memotret berlawanan arah matahari.'
+          ], 'JPG atau PNG. Ukuran berapa pun boleh — otomatis dikecilkan ke 900 px sebelum diunggah.') +
         '</div>';
 
       const wrap = Z.Sheet.buka({
@@ -1724,6 +1836,18 @@
    * JPEG akan memberi kotak putih di belakang logo — terlihat jelek pada
    * bar atas gelap dan pada mode gelap.
    */
+  /**
+   * Petunjuk singkat di bawah setiap kotak unggah gambar. Ditaruh di tempat
+   * keputusan diambil — bukan di buku panduan — karena pemilik memilih
+   * fotonya di sini, bukan sambil membaca dokumen.
+   */
+  function panduanUnggah(poin, catatan) {
+    return '<details class="panduan-unggah"><summary>' + Z.Ikon('info', 14) + 'Tips foto yang bagus</summary>' +
+      '<ul>' + poin.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' +
+      (catatan ? '<p>' + catatan + '</p>' : '') + '</details>';
+  }
+  global.panduanUnggah = panduanUnggah;
+
   async function kecilkanGambar(file, maksSisi) {
     return new Promise(function (selesai, tolak) {
       const reader = new FileReader();
@@ -1868,7 +1992,12 @@
         (global.App.set('FITUR_KTP', 'YA') === 'YA' ?
           '<div class="field"><label>Foto KTP / SIM (opsional)</label>' +
           '<input class="inp" type="file" accept="image/*" id="fileKtp" style="padding:9px">' +
-          '<div class="bantu">Tersimpan di folder Drive milik Anda, bukan di perangkat ini.</div></div>' : '') +
+          panduanUnggah([
+            'Letakkan kartu di permukaan datar, potret <b>tegak lurus dari atas</b> — bukan menyerong.',
+            'Pastikan <b>NIK dan nama terbaca jelas</b>, keempat sudut kartu masuk bingkai.',
+            'Hindari pantulan cahaya atau bayangan tangan di atas kartu.'
+          ], 'Tersimpan di folder Google Drive milik Anda sendiri, bukan di perangkat ini. ' +
+             'Otomatis dikecilkan ke 1.200 px.') + '</div>' : '') +
         '<div class="field" style="margin-bottom:0"><label>Catatan</label><textarea class="ta" data-p="catatan" maxlength="300">' + esc(p.catatan) + '</textarea></div>';
 
       const wrap = Z.Sheet.buka({
@@ -1944,7 +2073,7 @@
         '<a class="btn btn-kecil btn-hijau" href="https://wa.me/' + esc(Z.hp62(p.wa)) + '" target="_blank" rel="noopener">' +
           Z.Ikon('wa', 15) + 'Chat WA</a>' +
         (masalah && aktif
-          ? '<button class="btn btn-kecil btn-bahaya" data-wa="' + esc(aktif.id) + '" data-wa-tipe="TAGIH_TELAT">' +
+          ? '<button class="btn btn-kecil btn-bahaya" data-wa="' + esc(aktif.id) + '" data-wa-tipe="MENU">' +
             Z.Ikon('alert', 15) + 'Tagih</button>'
           : '<button class="btn btn-kecil btn-ink" data-order-pelanggan="' + esc(p.id) + '">' + Z.Ikon('plus', 15) + 'Buat Order</button>') +
       '</div></article>';

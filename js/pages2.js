@@ -16,6 +16,31 @@
   /* Satu baris metode pembayaran: nama + naik/turun + hapus.
      Berada di lingkup modul karena dipakai oleh DUA fungsi berbeda —
      perakit HTML halaman dan penggambar ulang saat daftar diubah. */
+  /** Satu baris pengaturan kotak foto serah terima: nama + saklar wajib + hapus. */
+  function fotoBarisHtml(arr) {
+    if (!arr.length) return '<div class="t-sm t-var" style="padding:10px 2px">Belum ada kotak foto.</div>';
+    return arr.map(function (x, i) {
+      return '<div class="lengkap-baris on">' +
+        '<input class="inp lengkap-nama-inp" data-fnama="' + i + '" value="' + esc(x.l) +
+          '" maxlength="24" placeholder="Nama kotak foto">' +
+        '<label class="pil-wajib" title="Wajib difoto">' +
+          '<input type="checkbox" data-fwajib="' + i + '"' + (x.wajib ? ' checked' : '') + '>' +
+          '<span>Wajib</span></label>' +
+        '<button type="button" class="ikon-btn ikon-btn-kecil" data-fhapus="' + i + '" aria-label="Hapus">' +
+          Z.Ikon('sampah', 16) + '</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  /** Kunci stabil dari nama kotak foto; dipakai sebagai nama berkas di Drive. */
+  function kunciSudut(label, dipakai) {
+    let k = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20);
+    if (!k) k = 'foto';
+    let n = k, i = 2;
+    while (dipakai.indexOf(n) >= 0) { n = k + '-' + (i++); }
+    return n;
+  }
+
   function bayarBarisHtml(arr) {
     if (!arr.length) return '<div class="t-sm t-var" style="padding:10px 2px">Belum ada metode.</div>';
     return arr.map(function (nama, i) {
@@ -937,7 +962,18 @@
       html += '<section class="kartu"><h3 class="t-judul">Logo & Identitas Aplikasi</h3>' +
         '<div class="grid2" style="margin-top:12px;gap:10px">' +
           gambarKotak('MEREK_LOGO', 'Logo aplikasi', s.MEREK_LOGO, 'Tampil di bar atas, side-rail, dan layar masuk.') +
+          global.panduanUnggah([
+            'Pakai <b>PNG berlatar transparan</b> supaya logo menyatu di tema terang maupun gelap. ' +
+              'JPG selalu punya latar kotak putih.',
+            'Bentuk <b>persegi atau mendekati persegi</b>, minimal 320×320 px.',
+            'Beri sedikit ruang kosong di tepi — logo yang mepet akan terlihat terpotong di dudukan bulat.',
+            'Logo bertulisan panjang akan mengecil dan tidak terbaca; pakai versi ikon/inisialnya saja.'
+          ], 'Otomatis dikecilkan ke 320 px. Setelah diunggah, tekan <b>Simpan Pengaturan</b> agar diterapkan.') +
           gambarKotak('MEREK_FAVICON', 'Favicon tab', s.MEREK_FAVICON, 'Ikon kecil pada tab peramban.') +
+          global.panduanUnggah([
+            'Tampil hanya <b>16–32 px</b> — pakai satu huruf atau simbol, jangan logo lengkap.',
+            'Kontras tinggi, PNG transparan, bentuk persegi.'
+          ], 'Otomatis dikecilkan ke 128 px. Kosongkan untuk memakai ikon bawaan warna merek Anda.') +
         '</div>' +
         '<div style="margin-top:12px">' +
           f('MEREK_JUDUL', 'Judul pada bar atas', { ph: 'ZAN Dashboard' }) +
@@ -999,6 +1035,21 @@
         '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" id="setBayarTambah">' +
           Z.Ikon('plus', 15) + 'Tambah metode pembayaran</button></section>';
 
+      /* ---------- Foto serah terima ---------- */
+      html += '<section class="kartu"><h3 class="t-judul">Foto Serah Terima</h3>' +
+        '<div class="t-sm t-var" style="margin-top:4px">Foto bukti <b>penyerahan unit dari Anda ke penyewa</b>. ' +
+        'Centang <b>Wajib</b> agar serah terima tidak bisa disimpan sebelum foto itu diambil.</div>' +
+        '<div id="setFoto" style="margin-top:10px;display:flex;flex-direction:column;gap:7px">' +
+          fotoBarisHtml(sudutFoto()) +
+        '</div>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" id="setFotoTambah">' +
+          Z.Ikon('plus', 15) + 'Tambah kotak foto</button>' +
+        '<div class="kotak" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px">' +
+          '<div style="min-width:0"><div style="font-weight:600;font-size:12.5px">Foto saat unit dikembalikan</div>' +
+          '<div class="t-sm t-var">Tambahan opsional. Bila mati, aplikasi hanya meminta foto serah terima.</div></div>' +
+          '<label class="switch"><input type="checkbox" id="setFotoKembali"' +
+            (fotoKembaliAktif() ? ' checked' : '') + '><span></span></label>' +
+        '</div></section>';
       /* ---------- Template kwitansi ---------- */
       let kw = {};
       try { kw = JSON.parse(s.KWITANSI_OPSI || '{}') || {}; } catch (e) { kw = {}; }
@@ -1262,6 +1313,44 @@
           });
       });
 
+      /* ---------- Kotak foto serah terima ---------- */
+      let sudut = sudutFoto();
+      function gambarFoto() {
+        const wadah = Z.$('#setFoto', root);
+        if (!wadah) return;
+        wadah.innerHTML = fotoBarisHtml(sudut);
+        ikatFoto();
+      }
+      function ikatFoto() {
+        Z.$$('[data-fnama]', root).forEach(function (i) {
+          i.addEventListener('input', function () { sudut[Z.num(i.getAttribute('data-fnama'))].l = i.value; });
+        });
+        Z.$$('[data-fwajib]', root).forEach(function (i) {
+          i.addEventListener('change', function () { sudut[Z.num(i.getAttribute('data-fwajib'))].wajib = i.checked; });
+        });
+        Z.$$('[data-fhapus]', root).forEach(function (b2) {
+          b2.addEventListener('click', function () {
+            if (sudut.length <= 1) return Z.toast('Minimal satu kotak foto harus ada.', 'err');
+            sudut.splice(Z.num(b2.getAttribute('data-fhapus')), 1);
+            gambarFoto();
+          });
+        });
+      }
+      ikatFoto();
+      const tf = Z.$('#setFotoTambah', root);
+      if (tf) tf.addEventListener('click', function () {
+        Z.tanya({ judul: 'Tambah kotak foto', label: 'Nama kotak', placeholder: 'Contoh: KTP penyewa', maks: 24 })
+          .then(function (nama) {
+            nama = String(nama || '').trim();
+            if (!nama) return;
+            if (sudut.some(function (x) { return x.l.toLowerCase() === nama.toLowerCase(); }))
+              return Z.toast('“' + nama + '” sudah ada.', 'err');
+            if (sudut.length >= 10) return Z.toast('Maksimal 10 kotak foto.', 'err');
+            sudut.push({ k: kunciSudut(nama, sudut.map(function (x) { return x.k; })), l: nama, wajib: false });
+            gambarFoto();
+          });
+      });
+
       /* ---------- Template kwitansi ---------- */
       let kop = null;
       Z.$$('[data-kop]', root).forEach(function (b) {
@@ -1293,6 +1382,20 @@
         nilai.METODE_BAYAR_OPSI = JSON.stringify(
           bayar.map(function (x) { return String(x || '').trim(); })
                .filter(function (x, i, arr) { return x && arr.indexOf(x) === i; }));
+        // Kotak foto: nama boleh diubah, kuncinya dipertahankan supaya foto
+        // yang sudah tersimpan tetap cocok dengan kotaknya.
+        const dipakai = [];
+        const sdSimpan = sudut.map(function (x) {
+          const l = String(x.l || '').trim();
+          if (!l) return null;
+          const k = x.k || kunciSudut(l, dipakai);
+          dipakai.push(k);
+          return { k: k, l: l, wajib: !!x.wajib };
+        }).filter(Boolean);
+        if (sdSimpan.length) nilai.FOTO_SERAH_SUDUT = JSON.stringify(sdSimpan);
+        const swFk = Z.$('#setFotoKembali', root);
+        if (swFk) nilai.FOTO_KEMBALI_AKTIF = swFk.checked ? 'YA' : 'TIDAK';
+
         const kw = { kop: kop || 'penuh' };
         Z.$$('[data-kw]', root).forEach(function (i) { kw[i.getAttribute('data-kw')] = i.checked; });
         Z.$$('[data-kwteks]', root).forEach(function (i) { kw[i.getAttribute('data-kwteks')] = i.value; });
@@ -1696,11 +1799,12 @@
             '<div class="btn-grid">' +
             '<button class="btn btn-netral" data-k="perpanjang">' + Z.Ikon('jam', 16) + 'Perpanjang</button>' +
             '<button class="btn btn-netral" data-k="bayar">' + Z.Ikon('dompet', 16) + 'Catat Bayar</button></div>' +
-            '<button class="btn btn-netral btn-blok" data-k="fotoKembali">' + Z.Ikon('kamera', 16) +
-            'Foto Kondisi Saat Kembali</button>' : '') +
+            (fotoKembaliAktif()
+              ? '<button class="btn btn-netral btn-blok" data-k="fotoKembali">' + Z.Ikon('kamera', 16) +
+                'Foto Kondisi Saat Kembali</button>' : '') : '') +
         (s === 'Booking'
           ? '<button class="btn btn-utama btn-blok" data-k="mulai">' + Z.Ikon('kunci', 17) + 'Serah Terima & Mulai Sewa</button>' : '') +
-        (s === 'Selesai'
+        (s === 'Selesai' && fotoKembaliAktif()
           ? '<button class="btn btn-netral btn-blok" data-k="fotoKembali">' + Z.Ikon('kamera', 16) +
             'Lengkapi Foto Pengembalian</button>' : '') +
         '<button class="btn btn-netral btn-blok" data-k="tautan">' + Z.Ikon('tautan', 16) +
@@ -1762,9 +1866,21 @@
     });
   };
 
+  /**
+   * Urutan tampil foto tersimpan: ikut urutan pengaturan, lalu sudut lain yang
+   * sudah terlanjur difoto sebelum pemilik mengubah daftarnya — supaya bukti
+   * lama tidak hilang dari layar hanya karena setelan berubah.
+   */
+  function urutSudut(f) {
+    const ada = Object.keys(f || {});
+    const urut = sudutFoto().map(function (x) { return x.k; });
+    return urut.filter(function (k) { return f[k]; })
+      .concat(ada.filter(function (k) { return urut.indexOf(k) < 0; }));
+  }
+
   /** Nama ramah untuk satu sudut foto; kunci tak dikenal dipakai apa adanya. */
   function labelSudut(k) {
-    const sd = SUDUT.filter(function (x) { return x.k === k; })[0];
+    const sd = sudutFoto().concat(SUDUT_BAWAAN).filter(function (x) { return x.k === k; })[0];
     return sd ? sd.l : String(k || '').replace(/^./, function (c) { return c.toUpperCase(); });
   }
 
@@ -1783,7 +1899,7 @@
   /** Galeri bukti foto yang sudah tersimpan di satu order (serah terima + pengembalian). */
   function blokBukti(o) {
     const bagian = [
-      { rec: o.serah, judul: 'Bukti Serah Terima', ikon: 'kunci' },
+      { rec: o.serah, judul: 'Bukti Serah Terima ke Penyewa', ikon: 'kunci' },
       { rec: o.pengembalian, judul: 'Bukti Pengembalian', ikon: 'check' }
     ].filter(function (b) { return b.rec && b.rec.foto && Object.keys(b.rec.foto).length; });
     if (!bagian.length) return '';
@@ -1803,9 +1919,7 @@
         '<span class="badge badge-ok">' + Object.keys(f).length + ' foto</span></div>' +
         (meta ? '<div class="t-sm t-var" style="margin:6px 0 9px">' + meta + '</div>' : '<div style="height:9px"></div>') +
         '<div class="foto-bukti">' +
-          SUDUT.filter(function (sd) { return f[sd.k]; }).map(function (sd) {
-            return imgBukti(f[sd.k], sd.l);
-          }).join('') +
+          urutSudut(f).map(function (k) { return imgBukti(f[k], labelSudut(k)); }).join('') +
         '</div>' +
         (b.rec.catatan ? '<div class="t-sm t-var" style="margin-top:8px">Catatan: ' + esc(b.rec.catatan) + '</div>' : '') +
         '</div>';
@@ -1828,36 +1942,175 @@
       '\nSisa: ' + Z.rp(Math.max(0, o.total - o.dibayar)) + '\n\nVerifikasi: ' + ctx.urlVerifikasi;
   }
 
-  function kirimWa(o, tipe) {
+  /** Nilai semua penanda {…} untuk satu order. */
+  function varsOrder(o) {
     const c = pel(o.pelanggan), u = unit(o.unit);
-    const cfg = Hal.notifikasi.cfg;
-    const usaha = global.App.set('NAMA_USAHA', 'ZAN Rental');
-    const vars = {
-      nama: c.nama, usaha: usaha, unit: u.nama, plat: u.plat, order: o.id,
-      mulai: Z.tglId(o.mulai), kembali: Z.tglId(o.kembali), jam: o.jamKembali, durasi: o.durasi,
-      total: Z.rp(o.total), sisa: Z.rp(Math.max(0, o.total - o.dibayar)),
-      denda: Z.rp(H.dendaBerjalan(o)), hari: H.hariTelat(o), link: urlVerif(o.kode),
+    return {
+      nama: c.nama, usaha: global.App.set('NAMA_USAHA', 'ZAN Rental'),
+      unit: u.nama, plat: u.plat, order: o.id,
+      mulai: Z.tglId(o.mulai), jamMulai: o.jamMulai || '09:00',
+      kembali: Z.tglId(o.kembali), jam: o.jamKembali, durasi: o.durasi,
+      total: Z.rp(o.total), dibayar: Z.rp(o.dibayar), sisa: Z.rp(Math.max(0, o.total - o.dibayar)),
+      denda: Z.rp(H.dendaBerjalan(o)), hari: H.hariTelat(o),
+      alamat: global.App.set('ALAMAT', ''),
+      alamatAntar: o.alamatAntar || '(alamat belum diisi di order)',
+      perlengkapan: (o.perlengkapan || []).map(function (x) {
+        return (Z.num(x.j) > 1 ? x.j + ' ' : '') + x.n; }).join(', ') || '-',
+      link: urlVerif(o.kode),
       kwitansi: o.kode ? '\n\n📄 Kwitansi & tanda terima:\n' + urlVerif(o.kode) : ''
     };
-    let tpl = cfg && cfg.matriks && cfg.matriks[tipe] ? cfg.matriks[tipe].pesan : TPL_CADANGAN[tipe];
-    const pesan = String(tpl || '').replace(/\{(\w+)\}/g, function (m, k) {
+  }
+
+  function isiTpl(tpl, vars) {
+    return String(tpl || '').replace(/\{(\w+)\}/g, function (m, k) {
       return vars[k] === undefined ? '' : String(vars[k]);
     });
-    const no = Z.hp62(c.wa);
-    if (!no) return Z.toast('Pelanggan ini belum punya nomor WhatsApp.', 'err');
-    window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(pesan), '_blank', 'noopener');
+  }
+
+  function tplPesan(tipe) {
+    const cfg = Hal.notifikasi.cfg;
+    return (cfg && cfg.matriks && cfg.matriks[tipe] ? cfg.matriks[tipe].pesan : '') || TPL_CADANGAN[tipe] || '';
+  }
+
+  /**
+   * Pilihan pesan yang masuk akal untuk kondisi order saat ini. Sengaja
+   * disaring: menawarkan "tagih sisa" pada order lunas atau "OTW antar" pada
+   * order tanpa antar-jemput hanya membuat pemilik salah kirim.
+   */
+  function opsiIngatkan(o) {
+    const s = H.statusEfektif(o);
+    const sisa = Math.max(0, o.total - o.dibayar);
+    const berjalan = s === 'Berjalan' || s === 'Terlambat';
+    const d = [
+      { k: 'ORDER_BARU',       l: 'Konfirmasi booking',        i: 'check',   ket: 'Rincian sewa, unit, dan jadwalnya',          ada: s === 'Booking' },
+      { k: 'UNIT_SIAP',        l: 'Unit siap diambil',         i: 'kunci',   ket: 'Penyewa menjemput sendiri ke tempat Anda',   ada: s === 'Booking' && !o.antar },
+      { k: 'OTW_JEMPUT',       l: 'Saya OTW mengantar unit',   i: 'motor',   ket: 'Beri tahu penyewa Anda sedang di jalan',     ada: s === 'Booking' && !!o.antar },
+      { k: 'TAGIH_BAYAR',      l: 'Tagih sisa pembayaran',     i: 'dompet',  ket: 'Sisa ' + Z.rp(sisa),                         ada: sisa > 0 && s !== 'Batal' },
+      { k: 'INGAT_KEMBALI',    l: 'Ingatkan pengembalian',     i: 'jam',     ket: 'Jatuh tempo ' + Z.tglId(o.kembali) + ', ' + o.jamKembali, ada: berjalan },
+      { k: 'TAWAR_PERPANJANG', l: 'Tawarkan perpanjangan',     i: 'plus',  ket: 'Sebelum kena denda',                         ada: berjalan },
+      { k: 'OTW_AMBIL',        l: 'Saya OTW menjemput unit',   i: 'motor',   ket: 'Untuk order dengan layanan antar-jemput',    ada: berjalan && !!o.antar },
+      { k: 'TAGIH_TELAT',      l: 'Tagih denda keterlambatan', i: 'alert',   ket: 'Telat ' + H.hariTelat(o) + ' hari • denda ' + Z.rp(H.dendaBerjalan(o)), ada: s === 'Terlambat' },
+      { k: 'ORDER_SELESAI',    l: 'Ucapan terima kasih',       i: 'bintang',    ket: 'Setelah unit kembali',                       ada: s === 'Selesai' },
+      { k: '_BEBAS',           l: 'Tulis pesan sendiri',       i: 'pensil',  ket: 'Mulai dari kosong',                          ada: true }
+    ];
+    return d.filter(function (x) { return x.ada; });
+  }
+
+  /**
+   * Ambil template milik pemilik di latar belakang bila belum ada.
+   * Tanpa ini, pesan yang sudah disunting pemilik di Pengaturan → Notifikasi
+   * tidak terpakai sampai halaman itu pernah dibuka; yang muncul cuma bawaan.
+   * Menu tetap terbuka seketika — hasilnya dipakai pratinjau berikutnya.
+   */
+  function pastikanTplPemilik() {
+    if (Hal.notifikasi.cfg || Hal.notifikasi._muatCfg) return;
+    Hal.notifikasi._muatCfg = true;
+    global.App.kirim('notif.config', {}, { diam: true }).then(function (r) {
+      if (r && r.success) Hal.notifikasi.cfg = r.data;
+    }).catch(function () {}).then(function () { Hal.notifikasi._muatCfg = false; });
+  }
+
+  /** Daftar pilihan pesan; tiap pilihan membuka pratinjau yang masih bisa disunting. */
+  function menuIngatkan(o) {
+    const c = pel(o.pelanggan);
+    if (!Z.hp62(c.wa)) return Z.toast('Pelanggan ini belum punya nomor WhatsApp.', 'err');
+    pastikanTplPemilik();
+
+    const isi = '<div class="t-sm t-var" style="margin-bottom:10px">Pilih pesan untuk <b>' + esc(c.nama) +
+      '</b> — teksnya masih bisa disunting sebelum dikirim.</div>' +
+      '<div class="pilih-list">' + opsiIngatkan(o).map(function (x) {
+        return '<button class="pilih-baris" data-tpl="' + esc(x.k) + '">' +
+          '<span class="pilih-ikon">' + Z.Ikon(x.i, 18) + '</span>' +
+          '<span class="pilih-teks"><b>' + esc(x.l) + '</b><span>' + esc(x.ket) + '</span></span>' +
+          Z.Ikon('panah', 17) + '</button>';
+      }).join('') + '</div>';
+
+    const wrap = Z.Sheet.buka({ judul: 'Ingatkan Penyewa', sub: o.id + ' • ' + c.nama, ikon: 'wa', isi: isi });
+    Z.$$('[data-tpl]', wrap).forEach(function (b) {
+      b.addEventListener('click', function () {
+        const k = b.getAttribute('data-tpl');
+        Z.Sheet.tutup();
+        setTimeout(function () { pratinjauWa(o, k); }, 240);
+      });
+    });
+  }
+
+  /** Pratinjau pesan yang sudah terisi; pemilik bisa menyunting lalu mengirim. */
+  function pratinjauWa(o, tipe) {
+    const c = pel(o.pelanggan);
+    const vars = varsOrder(o);
+    const awal = tipe === '_BEBAS' ? '' : isiTpl(tplPesan(tipe), vars);
+    const judul = (opsiIngatkan(o).filter(function (x) { return x.k === tipe; })[0] || {}).l || 'Pesan WhatsApp';
+
+    const isi = '<div class="field"><label>Isi pesan</label>' +
+      '<textarea class="ta" id="waTeks" rows="12" placeholder="Tulis pesan…">' + esc(awal) + '</textarea>' +
+      '<div class="bantu">Akan dibuka di WhatsApp ke <b>' + esc(Z.hpCantik(c.wa)) + '</b>. ' +
+      'Suntingan di sini hanya untuk pengiriman ini — template tetapnya diubah di Pengaturan → Notifikasi.</div></div>';
+
+    const wrap = Z.Sheet.buka({ judul: judul, sub: o.id + ' • ' + c.nama, ikon: 'wa', isi: isi,
+      aksi: '<button class="btn btn-netral" data-kembali>Pilihan lain</button>' +
+            '<button class="btn btn-hijau" data-kirim>' + Z.Ikon('wa', 17) + 'Buka WhatsApp</button>' });
+
+    Z.$('[data-kembali]', wrap).addEventListener('click', function () {
+      Z.Sheet.tutup();
+      setTimeout(function () { menuIngatkan(o); }, 240);
+    });
+    Z.$('[data-kirim]', wrap).addEventListener('click', function () {
+      const teks = Z.$('#waTeks', wrap).value.trim();
+      if (!teks) return Z.toast('Pesannya masih kosong.', 'err');
+      Z.Sheet.tutup();
+      window.open('https://wa.me/' + Z.hp62(c.wa) + '?text=' + encodeURIComponent(teks), '_blank', 'noopener');
+    });
+  }
+
+  function kirimWa(o, tipe) {
+    const c = pel(o.pelanggan);
+    if (!Z.hp62(c.wa)) return Z.toast('Pelanggan ini belum punya nomor WhatsApp.', 'err');
+    if (!tipe || tipe === 'MENU') return menuIngatkan(o);
+    return pratinjauWa(o, tipe);
   }
   global.kirimWa = kirimWa;
+  global.menuIngatkan = menuIngatkan;
 
+  /* Cadangan dipakai saat pengaturan notifikasi belum sempat dimuat. Harus
+     memuat SEMUA jenis pesan: kalau satu jenis tidak ada di sini, pemilik
+     yang membuka "Ingatkan" sebelum pernah masuk ke Pengaturan → Notifikasi
+     akan mendapat kotak pesan kosong. */
   const TPL_CADANGAN = {
-    ORDER_BARU: 'Halo {nama}! 🏍️\n\nTerima kasih sudah menyewa di *{usaha}*.\n\nNo. Order: *{order}*\nUnit: {unit} ({plat})\n' +
-      'Mulai: {mulai}\nKembali: {kembali} pukul {jam}\nTotal: *{total}*\nSisa bayar: {sisa}\n\nHati-hati di jalan! 🙏{kwitansi}',
-    INGAT_KEMBALI: 'Halo {nama} 👋\n\nPengingat: *{unit}* ({plat}) dijadwalkan kembali *hari ini* pukul *{jam}*.\n' +
-      'Order: {order}\n\nMohon konfirmasi bila ingin memperpanjang. Terima kasih 🙏{kwitansi}\n— {usaha}',
+    ORDER_BARU: 'Halo {nama}! 🏍️\n\nTerima kasih sudah menyewa di *{usaha}*.\n\nNo. Order : *{order}*\n' +
+      'Unit      : {unit} ({plat})\nMulai     : {mulai}\nKembali   : {kembali} pukul {jam}\n' +
+      'Durasi    : {durasi} hari\nBawaan    : {perlengkapan}\nTotal     : *{total}*\n' +
+      'Sisa bayar: {sisa}\n\n' +
+      'Mohon kembalikan tepat waktu beserta perlengkapannya ya. Hati-hati di jalan! 🙏{kwitansi}\n' +
+      '— {usaha}',
+    ORDER_UBAH: 'Halo {nama}, data order *{order}* telah diperbarui.\nUnit: {unit}\n' +
+      'Kembali: {kembali} pukul {jam}\nTotal: *{total}*\n— {usaha}',
+    UNIT_SIAP: 'Halo {nama}! ✅\n\n' +
+      '*{unit}* ({plat}) sudah siap dan bisa diambil mulai *{mulai}* pukul *{jamMulai}*.\n\n' +
+      'Jangan lupa bawa KTP/SIM asli ya. Alamat kami:\n{alamat}\n\nSampai jumpa 🙏{kwitansi}\n' +
+      '— {usaha}',
+    OTW_JEMPUT: 'Halo {nama} 🏍️💨\n\nSaya sedang dalam perjalanan mengantar *{unit}* ({plat}) ke:\n' +
+      '{alamatAntar}\n\nMohon ditunggu sebentar ya. Siapkan KTP/SIM untuk serah terima.\n\n' +
+      'Terima kasih 🙏\n— {usaha}',
+    TAGIH_BAYAR: 'Halo {nama} 🙏\n\nMengingatkan sisa pembayaran sewa *{unit}* ({order}):\n\n' +
+      'Total      : {total}\nSudah bayar: {dibayar}\n*Sisa       : {sisa}*\n\n' +
+      'Bisa ditransfer atau dibayar tunai saat pengembalian ya. Terima kasih!{kwitansi}\n— {usaha}',
+    INGAT_KEMBALI: 'Halo {nama} 👋\n\nPengingat: *{unit}* ({plat}) dijadwalkan kembali *hari ini* pukul *{jam}*.' +
+      '\n\nOrder: {order}\nMohon konfirmasi bila ingin memperpanjang agar tidak terkena denda.\n\n' +
+      'Terima kasih 🙏{kwitansi}\n— {usaha}',
+    TAWAR_PERPANJANG: 'Halo {nama} 👋\n\nSewa *{unit}* jatuh tempo *{kembali}* pukul *{jam}*.\n\n' +
+      'Kalau masih butuh, bisa diperpanjang — balas pesan ini sebelum jatuh tempo supaya tidak kena denda ya.' +
+      '\n\nTerima kasih 🙏\n— {usaha}',
+    ORDER_PERPANJANG: 'Halo {nama}, sewa *{unit}* berhasil diperpanjang sampai *{kembali}*.\n' +
+      'Total menjadi *{total}*.\nTerima kasih 🙏\n— {usaha}',
+    OTW_AMBIL: 'Halo {nama} 👋\n\nSaya sedang menuju lokasi untuk menjemput *{unit}* ({plat}).\n\n' +
+      'Mohon unit disiapkan beserta perlengkapannya: {perlengkapan}\n\nTerima kasih 🙏\n— {usaha}',
     TAGIH_TELAT: 'Halo {nama},\n\nUnit *{unit}* (order {order}) sudah melewati jatuh tempo *{hari} hari*.\n' +
-      'Denda berjalan: *{denda}*\n\nMohon segera dikembalikan atau hubungi kami. Terima kasih 🙏\n— {usaha}',
-    ORDER_SELESAI: 'Terima kasih {nama}! ✅\n\nUnit *{unit}* sudah kami terima kembali.\nTotal transaksi: *{total}*\n\n' +
-      'Semoga berkenan menyewa lagi. Sampai jumpa! 🏍️{kwitansi}\n— {usaha}'
+      'Denda berjalan: *{denda}*\n\n' +
+      'Mohon segera dikembalikan atau hubungi kami untuk perpanjangan. Terima kasih 🙏\n— {usaha}',
+    ORDER_SELESAI: 'Terima kasih {nama}! ✅\n\nUnit *{unit}* sudah kami terima kembali dengan baik.\n' +
+      'Total transaksi: *{total}*\n\n' +
+      'Semoga berkenan menyewa lagi di lain waktu. Sampai jumpa! 🏍️{kwitansi}\n— {usaha}'
   };
 
   function pratinjauStruk(ctx) {
@@ -2029,7 +2282,7 @@
    *  peramban sebelum dikirim supaya hemat kuota dan cepat di sinyal
    *  lemah — serah terima sering terjadi di pinggir jalan.
    * ================================================================ */
-  const SUDUT = [
+  const SUDUT_BAWAAN = [
     { k: 'penyewa',  l: 'Penyewa + unit', wajib: true,  bantu: 'Wajah penyewa terlihat jelas bersama motornya' },
     { k: 'depan',    l: 'Tampak depan',   wajib: false, bantu: '' },
     { k: 'belakang', l: 'Tampak belakang',wajib: false, bantu: '' },
@@ -2037,6 +2290,27 @@
     { k: 'kanan',    l: 'Sisi kanan',     wajib: false, bantu: '' },
     { k: 'odometer', l: 'Odometer',       wajib: false, bantu: 'Untuk bukti jarak tempuh' }
   ];
+  const BANTU_SUDUT = { penyewa: 'Wajah penyewa terlihat jelas bersama motornya',
+                        odometer: 'Untuk bukti jarak tempuh' };
+
+  /** Kotak foto sesuai pengaturan pemilik; setelan rusak jatuh ke bawaan. */
+  function sudutFoto() {
+    let d = null;
+    try { d = JSON.parse(global.App.set('FOTO_SERAH_SUDUT', '') || 'null'); } catch (e) {}
+    if (!Array.isArray(d) || !d.length) return SUDUT_BAWAAN.slice();
+    const out = [];
+    d.forEach(function (x) {
+      const k = x && String(x.k || '');
+      if (!k || out.some(function (y) { return y.k === k; })) return;
+      out.push({ k: k, l: String(x.l || k), wajib: !!x.wajib, bantu: BANTU_SUDUT[k] || '' });
+    });
+    return out.length ? out : SUDUT_BAWAAN.slice();
+  }
+  function fotoKembaliAktif() { return global.App.set('FOTO_KEMBALI_AKTIF', 'TIDAK') === 'YA'; }
+
+  /* Nama lama dipertahankan supaya galeri bukti & halaman publik tetap bisa
+     memberi label pada foto yang sudah terlanjur tersimpan. */
+  const SUDUT = SUDUT_BAWAAN;
 
   /**
    * Perkecil foto di peramban sebelum dikirim.
@@ -2058,6 +2332,8 @@
             else { w = Math.round(w * sisi / h); h = sisi; }
           }
           try {
+            // Selalu JPEG: foto serah terima datang dari kamera, dan PNG untuk
+            // foto kamera bisa 3–5× lebih besar tanpa manfaat apa pun.
             const c = document.createElement('canvas');
             c.width = w; c.height = h;
             const g = c.getContext('2d');
@@ -2080,7 +2356,7 @@
     const fotoLama = lama.foto || {};
     const terkumpul = {};                       // k → dataURL baru dari sesi ini
 
-    const kotak = SUDUT.map(function (sd) {
+    const kotak = sudutFoto().map(function (sd) {
       const ada = fotoLama[sd.k];
       return '<label class="foto-slot' + (ada ? ' ada' : '') + (sd.wajib ? ' wajib' : '') + '" data-slot="' + sd.k + '">' +
         '<input type="file" accept="image/*" capture="environment" data-foto="' + sd.k + '" hidden>' +
@@ -2095,11 +2371,21 @@
       '<div class="kotak" style="display:flex;gap:9px;align-items:center;margin-bottom:12px">' +
         '<span style="color:var(--ungu)">' + Z.Ikon(serah ? 'kunci' : 'check', 18) + '</span>' +
         '<div class="t-sm">' + (serah
-          ? 'Foto ini jadi bukti kondisi unit saat diserahkan. Setelah disimpan, order berubah menjadi <b>Berjalan</b>.'
-          : 'Foto kondisi unit saat dikembalikan, untuk dibandingkan dengan foto serah terima.') + '</div></div>' +
+          ? 'Bukti <b>penyerahan unit dari Anda ke penyewa</b>. Difoto saat motor diserahkan, ' +
+            'bukan saat dikembalikan. Setelah disimpan, order berubah menjadi <b>Berjalan</b>.'
+          : 'Foto kondisi unit <b>saat diterima kembali</b>, untuk dibandingkan dengan foto serah terima.') +
+        '</div></div>' +
 
-      '<div class="t-cap t-var" style="margin-bottom:7px">FOTO KONDISI</div>' +
+      '<div class="t-cap t-var" style="margin-bottom:7px">' +
+      (serah ? 'FOTO SAAT PENYERAHAN' : 'FOTO SAAT PENGEMBALIAN') + '</div>' +
       '<div class="foto-grid">' + kotak + '</div>' +
+      global.panduanUnggah([
+        'Foto penyewa: <b>wajah dan motornya satu bingkai</b>, plat nomor ikut terlihat.',
+        'Foto bodi: ambil dari jarak sekitar 1,5 meter, <b>mendatar</b>, di tempat terang.',
+        'Kalau ada lecet atau penyok, foto dari dekat juga — ini yang menolong kalau nanti ada selisih klaim.',
+        'Odometer: dekatkan sampai <b>angkanya terbaca</b>, jangan sampai buram.'
+      ], 'Ketuk kotak untuk membuka kamera. Foto otomatis dikecilkan di HP Anda sebelum dikirim, ' +
+         'jadi tidak boros kuota.') +
 
       '<div class="grid2" style="margin-top:13px">' +
         '<div class="field"><label>Odometer (km)</label>' +
@@ -2115,7 +2401,7 @@
         'placeholder="Contoh: baret halus di spakbor kanan, spion kiri agak longgar">' + esc(lama.catatan || '') + '</textarea></div>';
 
     const wrap = Z.Sheet.buka({
-      judul: serah ? 'Serah Terima Unit' : 'Foto Pengembalian',
+      judul: serah ? 'Serah Terima ke Penyewa' : 'Foto Saat Unit Kembali',
       sub: o.id + ' • ' + c.nama + ' • ' + u.plat,
       ikon: 'kamera', isi: isi,
       aksi: '<button class="btn btn-netral" data-batal>Batal</button>' +

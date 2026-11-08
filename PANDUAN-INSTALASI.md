@@ -403,7 +403,39 @@ penagihan denda. Daftar variabel yang bisa dipakai (`{nama}`, `{motor}`, `{tangg
 
 ---
 
-## Bagian G — Foto serah terima & tautan kwitansi
+## Bagian G — Mengingatkan penyewa lewat WhatsApp
+
+Tombol **Ingatkan** pada kartu order membuka daftar pesan siap pakai. Daftarnya
+**menyesuaikan keadaan order itu**, jadi Anda tidak perlu memilah sendiri:
+
+| Pilihan | Muncul saat |
+|---|---|
+| Konfirmasi booking | Status **Booking** |
+| Unit siap diambil | Booking, **tanpa** layanan antar-jemput |
+| Saya OTW mengantar unit | Booking, **dengan** layanan antar-jemput |
+| Tagih sisa pembayaran | Masih ada sisa bayar |
+| Ingatkan pengembalian | Sewa sedang **Berjalan** |
+| Tawarkan perpanjangan | Sewa sedang berjalan (sebelum kena denda) |
+| Saya OTW menjemput unit | Sewa berjalan, dengan antar-jemput |
+| Tagih denda keterlambatan | Status **Terlambat** |
+| Ucapan terima kasih | Status **Selesai** |
+| Tulis pesan sendiri | Selalu |
+
+Pilihan yang tidak masuk akal sengaja disembunyikan — menawarkan "tagih sisa" pada
+order yang sudah lunas, atau "OTW antar" pada order yang diambil sendiri, hanya
+membuat salah kirim.
+
+Setelah dipilih, isinya tampil dalam kotak yang **masih bisa Anda sunting** sebelum
+WhatsApp dibuka. Suntingan di situ berlaku untuk pengiriman itu saja; untuk mengubah
+template tetapnya, buka **Pengaturan → Notifikasi**.
+
+---
+
+## Bagian H — Foto serah terima & tautan kwitansi
+
+> **Arahnya satu: dari Anda ke penyewa.** Foto ini diambil **saat motor diserahkan
+> di awal sewa**, bukan saat unit sudah dikembalikan. Foto untuk kondisi
+> pengembalian adalah fitur terpisah dan mati secara bawaan (lihat di bawah).
 
 ### Mengapa harus ada fotonya
 
@@ -437,9 +469,24 @@ boros kuota dan tidak membuat Drive cepat penuh.
 > unit boleh dilewati dan dilengkapi belakangan — buka ordernya lagi dan ulangi langkah
 > yang sama; foto lama tidak akan hilang atau tergandakan.
 
+### Mengatur sendiri kotak fotonya
+
+**Pengaturan → Foto Serah Terima.** Semua kotak foto bisa Anda atur sendiri:
+
+* **Ganti namanya** — misal "Penyewa + unit" jadi "Penyewa pegang STNK".
+* **Centang Wajib** — serah terima tidak bisa disimpan sebelum foto itu diambil.
+  Bawaannya hanya foto penyewa yang wajib.
+* **Tambah kotak** sampai 10 buah — misal "KTP penyewa" atau "Tangki bensin".
+* **Hapus kotak** yang tidak Anda perlukan (minimal satu harus tersisa).
+
+Jadi kalau Anda merasa enam kotak terlalu banyak, sisakan satu saja: foto penyewa.
+
 ### Foto saat motor kembali
 
-Pada order yang sedang berjalan ada tombol **Foto Kondisi Saat Kembali**. Isinya sama
+Fitur ini **mati secara bawaan** — nyalakan lewat saklar
+**Foto saat unit dikembalikan** di Pengaturan → Foto Serah Terima bila Anda
+memerlukannya. Setelah menyala, pada order yang sedang berjalan muncul tombol
+**Foto Kondisi Saat Kembali**. Isinya sama
 persis, dan dipakai untuk mencatat kondisi unit saat diterima lagi. Tombol ini **tidak**
 mengubah status order — menyelesaikan sewa tetap lewat **Selesaikan Sewa**.
 
@@ -475,7 +522,7 @@ pelanggan.
 
 ---
 
-## Bagian H — Menghapus banyak data sekaligus
+## Bagian I — Menghapus banyak data sekaligus
 
 Di menu **Order**, **Armada**, dan **Pelanggan** ada tombol **Pilih**. Setelah ditekan,
 setiap kartu mendapat kotak centang dan muncul bar aksi di bawah.
@@ -487,6 +534,12 @@ Aplikasi menolak penghapusan yang akan merusak riwayat:
 * **Order** yang dihapus ikut membuang baris keuangan yang terkait, supaya laporan tetap cocok.
 
 Yang dilewati akan disebutkan jumlah dan alasannya setelah proses selesai.
+
+Daftarnya langsung berkurang begitu server menjawab — aplikasi tidak lagi menarik
+ulang seluruh data dari Sheets sesudah menghapus, jadi prosesnya jauh lebih singkat.
+Kalau sempat muncul **"Server sibuk, mencoba lagi"**, biarkan saja: aplikasi
+mengulang sendiri sampai dua kali dengan jeda yang makin panjang. Menekan tombol
+hapus dua kali untuk ID yang sama juga aman — tidak dianggap error.
 
 ---
 
