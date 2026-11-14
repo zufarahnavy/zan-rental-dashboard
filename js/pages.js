@@ -29,6 +29,41 @@
    *   (misalnya backend belum diperbarui) — pemanggil harus memuat ulang.
    */
   /** Status berkas paling awal (dipakai sebagai nilai bawaan pelanggan baru). */
+  /** Baris satu paket tarif custom pada form unit. */
+  function paketBarisHtml(arr) {
+    if (!arr.length) return '<div class="t-sm t-var">Belum ada paket khusus.</div>';
+    return arr.map(function (x, i) {
+      return '<div class="paket-baris">' +
+        '<input class="inp" data-pknama="' + i + '" value="' + esc(x.nama || '') +
+          '" maxlength="24" placeholder="Nama paket">' +
+        '<div class="inp-rp paket-hari"><input type="number" data-pkhari="' + i + '" value="' +
+          Z.num(x.hari) + '" min="1" max="365"><span>hari</span></div>' +
+        '<div class="inp-rp paket-harga"><span>Rp</span><input type="number" data-pkharga="' + i +
+          '" value="' + Z.num(x.harga) + '" step="10000"></div>' +
+        '<button type="button" class="ikon-btn ikon-btn-kecil" data-pkhapus="' + i +
+          '" aria-label="Hapus paket">' + Z.Ikon('sampah', 16) + '</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  /** Kartu unit yang tidak bisa dipakai pada rentang tanggal terpilih. */
+  function unitTerpakai(u, st) {
+    const ikon = st.sebab === 'disewa' ? 'order'
+               : (st.sebab === 'nonaktif' ? 'x' : 'perkakas');
+    return '<div class="kotak unit-tidak" aria-disabled="true">' +
+      '<div style="display:flex;align-items:center;gap:10px;min-width:0">' +
+        '<span class="unit-tidak-ikon">' + Z.Ikon(ikon, 16) + '</span>' +
+        '<div style="min-width:0;flex:1">' +
+          '<div class="unit-tidak-nama">' + esc(u.nama || u.id) +
+            (u.plat ? ' <span class="t-var">· ' + esc(u.plat) + '</span>' : '') + '</div>' +
+          '<div class="unit-tidak-sebab">' + esc(st.pesan) + '</div>' +
+        '</div>' +
+        '<span class="badge badge-netral" style="flex:none">' +
+          (st.sebab === 'disewa' ? 'Disewa' : (st.sebab === 'nonaktif' ? 'Nonaktif' : 'Servis')) +
+        '</span>' +
+      '</div></div>';
+  }
+
   function berkasOpsiPertama() {
     const o = Z.berkasOpsi();
     return (o[0] && o[0].n) || 'Belum ada berkas';
@@ -476,17 +511,57 @@
              hasil: hasil, biaya: biaya, laba: hasil - biaya, servis: srv.length };
   };
 
-  Hitung.unitTersedia = function (mulai, kembali, kecuali) {
-    return (D().units || []).filter(function (u) {
-      if (!u.aktif || u.status === 'Servis') return false;
-      const bentrok = (D().pesanan || []).some(function (o) {
-        if (o.unit !== u.id) return false;
-        if (kecuali && o.id === kecuali) return false;
-        if (o.status === 'Batal' || o.status === 'Selesai') return false;
-        return mulai < o.kembali && kembali > o.mulai;
-      });
-      return !bentrok;
+  /**
+   * Status ketersediaan satu unit pada rentang tanggal tertentu, BESERTA
+   * alasannya. Sebelumnya unit yang bentrok hanya disaring keluar diam-diam,
+   * sehingga pemilik tidak tahu mengapa motornya hilang dari daftar.
+   *
+   * @returns {{bisa:boolean, sebab:string, pesan:string}}
+   */
+  Hitung.statusUnitTanggal = function (u, mulai, kembali, kecuali) {
+    if (!u.aktif) return { bisa: false, sebab: 'nonaktif', pesan: 'Unit dinonaktifkan' };
+
+    if (u.status === 'Servis') {
+      return { bisa: false, sebab: 'servis', pesan: 'Sedang di bengkel' };
+    }
+
+    // Servis terjadwal yang jatuh di dalam rentang sewa. Tanggalnya diambil
+    // dari catatan servis terakhir unit ini (kolom "servis berikutnya"),
+    // karena Unit sendiri hanya menyimpan ambang kilometer.
+    const jadwal = (D().servis || [])
+      .filter(function (x) { return x.unit === u.id && x.next; })
+      .sort(function (a2, b2) { return String(b2.tanggal).localeCompare(String(a2.tanggal)); })[0];
+    if (jadwal && mulai && kembali && jadwal.next >= mulai && jadwal.next <= kembali) {
+      return { bisa: false, sebab: 'servis-jadwal',
+               pesan: 'Dijadwalkan servis ' + Z.tglPendek(jadwal.next) };
+    }
+
+    const bentrok = (D().pesanan || []).filter(function (o) {
+      if (o.unit !== u.id) return false;
+      if (kecuali && o.id === kecuali) return false;
+      if (o.status === 'Batal' || o.status === 'Selesai') return false;
+      return mulai < o.kembali && kembali > o.mulai;
+    })[0];
+    if (bentrok) {
+      return { bisa: false, sebab: 'disewa',
+               pesan: 'Sudah dipesan ' + Z.tglPendek(bentrok.mulai) + '–' + Z.tglPendek(bentrok.kembali),
+               order: bentrok.id };
+    }
+    return { bisa: true, sebab: 'tersedia', pesan: 'Tersedia' };
+  };
+
+  /** Semua unit beserta status ketersediaannya pada rentang tanggal. */
+  Hitung.unitDenganStatus = function (mulai, kembali, kecuali) {
+    return (D().units || []).map(function (u) {
+      const st = Hitung.statusUnitTanggal(u, mulai, kembali, kecuali);
+      return { u: u, st: st };
     });
+  };
+
+  Hitung.unitTersedia = function (mulai, kembali, kecuali) {
+    return Hitung.unitDenganStatus(mulai, kembali, kecuali)
+      .filter(function (x) { return x.st.bisa; })
+      .map(function (x) { return x.u; });
   };
 
   /* ================================================================
@@ -938,12 +1013,15 @@
       const u = f.unit ? unit(f.unit) : null;
       const durasi = Math.max(1, Z.selisihHari(f.mulai, f.kembali));
       const hargaHari = u ? u.harga : 0;
-      const sewa = hargaHari * durasi;
+      // Tarif mingguan / paket custom dipakai bila lebih menguntungkan penyewa
+      const t = Z.hitungSewa(hargaHari, u ? u.hargaMinggu : 0, u ? u.paket : [], durasi);
+      const sewa = t.sewa;
       const biayaAntar = f.antar ? Math.max(0, Z.num(f.biayaAntar)) : 0;
       const total = Math.max(0, sewa + biayaAntar - Z.num(f.diskon));
       return {
         u: u, c: f.pelanggan ? pel(f.pelanggan) : null,
         durasi: durasi, hargaHari: hargaHari, sewa: sewa, biayaAntar: biayaAntar, total: total,
+        dasarTarif: t.dasar, rincianTarif: t.rincian,
         tersedia: Hitung.unitTersedia(f.mulai, f.kembali, f.id)
       };
     },
@@ -953,19 +1031,37 @@
     htmlUnitList: function (h) {
       const f = FormOrder.data;
       const q = String(FormOrder.cariUnit || '').toLowerCase().trim();
-      const hasil = !q ? h.tersedia : h.tersedia.filter(function (x) {
-        return ((x.nama || '') + ' ' + (x.plat || '') + ' ' + (x.merek || '') + ' ' +
-                (x.tipe || '')).toLowerCase().indexOf(q) >= 0;
+      const semua = Hitung.unitDenganStatus(f.mulai, f.kembali, f.id);
+      const cocok = !q ? semua : semua.filter(function (x) {
+        return ((x.u.nama || '') + ' ' + (x.u.plat || '') + ' ' + (x.u.merek || '') + ' ' +
+                (x.u.tipe || '')).toLowerCase().indexOf(q) >= 0;
       });
-      if (!h.tersedia.length) {
-        return U.kosong('motor', 'Tidak ada unit bebas',
-          'Semua motor sudah dipesan pada rentang tanggal ini. Coba geser tanggalnya.');
+      if (!semua.length) {
+        return U.kosong('motor', 'Belum ada armada', 'Tambahkan unit lebih dulu di menu Armada.');
       }
-      if (!hasil.length) {
+      if (!cocok.length) {
         return U.kosong('cari', 'Tidak ada yang cocok',
-          'Tidak ada unit bebas yang cocok dengan "' + esc(FormOrder.cariUnit) + '".');
+          'Tidak ada unit yang cocok dengan "' + esc(FormOrder.cariUnit) + '".');
       }
-      return hasil.map(function (x) { return pilihUnit(x, f.unit === x.id, h.durasi); }).join('');
+
+      /* Yang bisa dipakai didahulukan; yang terpakai tetap DITAMPILKAN lengkap
+         dengan alasannya. Menyembunyikannya membuat pemilik bertanya-tanya ke
+         mana motornya pergi, dan tidak tahu harus menggeser tanggal berapa. */
+      const bisa = cocok.filter(function (x) { return x.st.bisa; });
+      const tidak = cocok.filter(function (x) { return !x.st.bisa; });
+
+      let out = '';
+      if (!bisa.length) {
+        out += '<div class="kotak-info kotak-warn">' + Z.Ikon('alert', 15) +
+          '<span>Tidak ada motor yang bebas pada ' + esc(Z.tglPendek(f.mulai)) + '–' +
+          esc(Z.tglPendek(f.kembali)) + '. Coba geser tanggalnya.</span></div>';
+      }
+      out += bisa.map(function (x) { return pilihUnit(x.u, f.unit === x.u.id, h.durasi); }).join('');
+      if (tidak.length) {
+        out += '<div class="unit-pisah">Tidak bisa dipakai pada tanggal ini (' + tidak.length + ')</div>' +
+          tidak.map(function (x) { return unitTerpakai(x.u, x.st); }).join('');
+      }
+      return out;
     },
 
     htmlPerlengkapan: function () {
@@ -1108,7 +1204,8 @@
         '<div class="seksi-head"><div class="kiri"><span class="kpi-ikon">' + Z.Ikon('dompet', 17) + '</span>' +
         '<div><div style="font-weight:700">Rincian Biaya & Deposit</div><div class="t-sm t-var">Perhitungan otomatis</div></div></div></div>' +
         '<div class="kotak" style="margin-top:11px">' +
-          '<div class="baris"><span class="baris-l" id="nSewaLabel">Sewa ' + h.durasi + ' hari × ' + Z.rp(h.hargaHari) + '</span>' +
+          '<div class="baris"><span class="baris-l" id="nSewaLabel">Sewa ' + esc(h.rincianTarif) +
+            (h.dasarTarif !== 'harian' ? ' <span class="tag-tarif">' + esc(h.dasarTarif) + '</span>' : '') + '</span>' +
             '<span class="baris-n" id="nSewa">' + Z.rp(h.sewa) + '</span></div>' +
           '<div class="baris" id="nAntarBaris"' + (f.antar ? '' : ' hidden') + '>' +
             '<span class="baris-l">Layanan antar-jemput</span>' +
@@ -1257,7 +1354,13 @@
       const set = function (sel, teks) { const e = $(sel); if (e) e.textContent = teks; };
 
       set('#nDurasi', h.durasi + ' hari (' + (h.durasi * 24) + ' jam)');
-      set('#nSewaLabel', 'Sewa ' + h.durasi + ' hari × ' + Z.rp(h.hargaHari));
+      // Dibangun dengan innerHTML, bukan textContent, karena dasar tarif
+      // (mingguan/paket) ditandai lencana kecil di sebelah labelnya.
+      const lblSewa = $('#nSewaLabel');
+      if (lblSewa) {
+        lblSewa.innerHTML = 'Sewa ' + esc(h.rincianTarif) +
+          (h.dasarTarif !== 'harian' ? ' <span class="tag-tarif">' + esc(h.dasarTarif) + '</span>' : '');
+      }
       set('#nSewa', Z.rp(h.sewa));
       set('#nAntar', h.biayaAntar ? Z.rp(h.biayaAntar) : 'Gratis');
       set('#nTotalBaris', Z.rp(h.total));
@@ -1693,6 +1796,22 @@
         '<div class="field"><label>Plat nomor</label><input class="inp" data-u="plat" value="' + esc(u.plat) + '" placeholder="P 1234 AB" style="text-transform:uppercase"></div></div>' +
         '<div class="grid2"><div class="field"><label>Tahun</label><input class="inp" type="number" data-u="tahun" value="' + Z.num(u.tahun) + '"></div>' +
         '<div class="field"><label>Harga / hari</label><div class="inp-rp"><span>Rp</span><input type="number" data-u="harga" value="' + Z.num(u.harga) + '" step="5000"></div></div></div>' +
+
+        /* Tarif mingguan & paket custom. Keduanya opsional: dikosongkan berarti
+           unit ini hanya memakai tarif harian seperti sebelumnya. */
+        '<div class="field"><label>Harga / minggu <span class="t-var">(opsional)</span></label>' +
+          '<div class="inp-rp"><span>Rp</span><input type="number" data-u="hargaMinggu" value="' +
+          Z.num(u.hargaMinggu) + '" step="10000" placeholder="0 = tidak dipakai"></div>' +
+          '<div class="bantu">Dipakai otomatis untuk sewa 7 hari atau lebih, ' +
+          '<b>hanya bila hasilnya lebih murah</b> daripada tarif harian.</div></div>' +
+
+        '<div class="field"><label>Paket khusus <span class="t-var">(opsional)</span></label>' +
+          '<div id="uPaket" style="display:flex;flex-direction:column;gap:7px">' +
+            paketBarisHtml(u.paket || []) + '</div>' +
+          '<button type="button" class="btn btn-netral btn-blok btn-kecil" style="margin-top:7px" id="uPaketTambah">' +
+            Z.Ikon('plus', 15) + 'Tambah paket</button>' +
+          '<div class="bantu">Paket dipakai saat lama sewa <b>pas</b> sama dengan jumlah harinya — ' +
+          'misalnya paket 30 hari untuk sewa sebulan. Paket mengalahkan tarif mingguan dan harian.</div></div>' +
         '<div class="grid2"><div class="field"><label>Tipe</label><select class="sel" data-u="tipe">' +
         ['Matic', 'Retro Matic', 'Sport Matic', 'Maxi Scooter', 'Eco Matic', 'Adventure', 'Bebek', 'Sport'].map(function (t) {
           return '<option' + (u.tipe === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></div>' +
@@ -1780,11 +1899,52 @@
         if (r.success) { foto = r.data.url; perbaruiPra(); }
       });
 
+      /* --- Paket tarif custom --- */
+      let paket = (u.paket || []).map(function (x) {
+        return { nama: x.nama || '', hari: Z.num(x.hari), harga: Z.num(x.harga) };
+      });
+      function gambarPaket() {
+        const w = Z.$('#uPaket', wrap);
+        if (!w) return;
+        w.innerHTML = paketBarisHtml(paket);
+        ikatPaket();
+      }
+      function ikatPaket() {
+        [['pknama', 'nama', false], ['pkhari', 'hari', true], ['pkharga', 'harga', true]]
+          .forEach(function (cfg) {
+            Z.$$('[data-' + cfg[0] + ']', wrap).forEach(function (i) {
+              i.addEventListener('input', function () {
+                const k = Z.num(i.getAttribute('data-' + cfg[0]));
+                paket[k][cfg[1]] = cfg[2] ? Z.num(i.value) : i.value;
+              });
+            });
+          });
+        Z.$$('[data-pkhapus]', wrap).forEach(function (b2) {
+          b2.addEventListener('click', function () {
+            paket.splice(Z.num(b2.getAttribute('data-pkhapus')), 1);
+            gambarPaket();
+          });
+        });
+      }
+      ikatPaket();
+      const tp = Z.$('#uPaketTambah', wrap);
+      if (tp) tp.addEventListener('click', function () {
+        if (paket.length >= 6) return Z.toast('Maksimal 6 paket per unit.', 'err');
+        paket.push({ nama: '', hari: 30, harga: 0 });
+        gambarPaket();
+      });
+
       Z.$('[data-simpan]', wrap).addEventListener('click', async function () {
         const d = { id: id || '', foto: foto };
         Z.$$('[data-u]', wrap).forEach(function (i) { d[i.getAttribute('data-u')] = i.value; });
         if (!d.nama) return Z.toast('Nama motor wajib diisi.', 'err');
         if (!d.plat) return Z.toast('Plat nomor wajib diisi.', 'err');
+        // Paket tanpa nama/hari/harga yang sah dibuang diam-diam
+        d.paket = paket.filter(function (x) { return Z.num(x.hari) > 0 && Z.num(x.harga) > 0; });
+        const bentrok = d.paket.filter(function (x, i, a) {
+          return a.findIndex(function (y) { return Z.num(y.hari) === Z.num(x.hari); }) !== i;
+        });
+        if (bentrok.length) return Z.toast('Ada dua paket dengan jumlah hari yang sama.', 'err');
         const r = await global.App.kirim('unit.simpan', d);
         if (r.success) { Z.Sheet.tutup(); await global.App.muatUlang(true); }
       });

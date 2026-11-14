@@ -25,7 +25,31 @@
   };
 
   const Merek = global.Merek = {
-    set: function (k, d) { return (App.set ? App.set(k, d) : d) || d; },
+    /* Identitas yang dikirim bersama kwitansi publik. Halaman itu dibuka tanpa
+       login, jadi App.data kosong dan Merek.set tidak punya sumber apa pun —
+       inilah sebabnya logo di sana selalu jatuh ke huruf bawaan. */
+    publik: null,
+    seedPublik: function (m) {
+      if (!m || typeof m !== 'object') return;
+      Merek.publik = {
+        MEREK_LOGO: m.logo || '', MEREK_FAVICON: m.favicon || m.logo || '',
+        MEREK_JUDUL: m.usaha || '', MEREK_SUBJUDUL: 'Kwitansi Online',
+        WARNA_AKSEN: m.aksen || '', WARNA_TINTA: m.tinta || '',
+        WARNA_SEKUNDER: m.sekunder || '', FONT_APP: m.font || ''
+      };
+      Merek.terapkan();
+      Merek.segarkanLogo();
+      Z.$$('[data-merek-nama]').forEach(function (t) { t.textContent = Merek.judul(); });
+    },
+
+    set: function (k, d) {
+      if (Merek.publik) {
+        const v = Merek.publik[k];
+        if (v) return v;
+        return d;
+      }
+      return (App.set ? App.set(k, d) : d) || d;
+    },
     judul:    function () { return Merek.set('MEREK_JUDUL', 'ZAN Dashboard'); },
     subjudul: function () { return Merek.set('MEREK_SUBJUDUL', 'Operasional'); },
     logoUrl:  function () { return String(Merek.set('MEREK_LOGO', '') || '').trim(); },
@@ -304,7 +328,11 @@
       try { if (hal.setelah) hal.setelah(lajur, App.param); } catch (e) { console.error(e); }
       App.pasangAksiGlobal(lajur);
       App.perbaruiNav();
-      document.title = (hal.judul ? hal.judul + ' • ' : '') + (global.ZAN_CONFIG.APP_NAMA || 'ZAN Rental');
+      // Pada halaman kwitansi publik, judul tab memakai nama usaha pemilik —
+      // penyewa tidak perlu melihat nama aplikasi internal pengelola.
+      document.title = Merek.publik
+        ? (Merek.judul() ? Merek.judul() + ' • ' : '') + 'Kwitansi'
+        : (hal.judul ? hal.judul + ' • ' : '') + (global.ZAN_CONFIG.APP_NAMA || 'ZAN Rental');
     },
 
     perbaruiNav: function () {
@@ -461,6 +489,42 @@
   /* ================================================================
    * KERANGKA HTML
    * ================================================================ */
+  /**
+   * Cangkang untuk halaman kwitansi publik.
+   *
+   * Sengaja TIDAK memakai gambarKerangka(): kerangka itu memuat rail menu,
+   * bar aplikasi, dan nav bawah — seluruh isi dashboard yang bersifat privat
+   * bagi pengelola. Penyewa yang membuka tautan kwitansi hanya boleh melihat
+   * kwitansinya sendiri, jadi halaman ini berdiri sendiri.
+   */
+  function gambarKerangkaPublik() {
+    const app = Z.$('#app');
+    app.className = 'app app-publik';
+    app.innerHTML =
+      '<header class="pub-bar">' +
+        '<div class="pub-merek">' +
+          Merek.htmlLogo('pub-logo') +
+          '<div class="pub-nama"><span data-merek-nama>' + esc(Merek.judul()) + '</span>' +
+            '<small>Kwitansi Online</small></div>' +
+        '</div>' +
+        '<button class="ikon-btn" id="pubTema" aria-label="Ganti tema">' + Z.Ikon('bulan', 19) + '</button>' +
+      '</header>' +
+      '<main class="pub-isi" id="utama"></main>' +
+      '<footer class="pub-kaki">' +
+        '<div>Dokumen elektronik — diterbitkan otomatis oleh sistem ' +
+          '<b data-merek-nama>' + esc(Merek.judul()) + '</b>.</div>' +
+        '<div class="pub-kaki-kecil">Halaman ini hanya menampilkan satu pesanan. ' +
+          'Tidak ada data pelanggan lain yang dapat diakses dari sini.</div>' +
+      '</footer>';
+
+    const tm = Z.$('#pubTema');
+    if (tm) tm.addEventListener('click', function () {
+      const gelap = document.documentElement.getAttribute('data-tema') === 'gelap';
+      document.documentElement.setAttribute('data-tema', gelap ? 'terang' : 'gelap');
+      Z.Simpan.taruh('tema', gelap ? 'terang' : 'gelap');
+    });
+  }
+
   function gambarKerangka() {
     const app = Z.$('#app');
     app.className = 'app';
@@ -676,9 +740,7 @@
     // Halaman verifikasi publik: boleh dibuka tanpa login
     const h = App.dariHash();
     if (h.rute === 'verifikasi') {
-      gambarKerangka();
-      Z.$('.navbawah').style.display = 'none';
-      Z.$('.fab').style.display = 'none';
+      gambarKerangkaPublik();
       App.rute = 'verifikasi'; App.param = h.param;
       App.render();
       return;

@@ -650,8 +650,36 @@
     return /lengkap/i.test(v);          // data sebelum pilihan bisa diatur
   }
 
+  /**
+   * Biaya sewa dari tarif harian, mingguan, dan paket custom.
+   * Cerminan hitungSewa_ di backend — keduanya harus memberi angka yang sama,
+   * kalau tidak total di layar berbeda dengan yang tersimpan.
+   */
+  function hitungSewa(hargaHari, hargaMinggu, paket, durasi) {
+    const hari = Math.max(1, Math.round(num(durasi)));
+    const hh = Math.max(0, num(hargaHari));
+    const hm = Math.max(0, num(hargaMinggu));
+    const harian = hh * hari;
+
+    const pas = (paket || []).filter(function (p) { return Number(p.hari) === hari; })[0];
+    if (pas) {
+      return { sewa: num(pas.harga), dasar: 'paket',
+               rincian: (pas.nama || 'Paket ' + hari + ' hari') };
+    }
+    if (hm > 0 && hari >= 7) {
+      const minggu = Math.floor(hari / 7), sisa = hari % 7;
+      const campur = minggu * hm + sisa * hh;
+      if (campur < harian) {
+        return { sewa: campur, dasar: 'mingguan',
+                 rincian: minggu + ' minggu' + (sisa ? ' + ' + sisa + ' hari' : '') };
+      }
+    }
+    return { sewa: harian, dasar: 'harian', rincian: hari + ' hari \u00d7 ' + rp(hh) };
+  }
+
   global.ZAN = {
     $: $, $$: $$, esc: esc, num: num, rp: rp, rpSingkat: rpSingkat, ribuan: ribuan,
+    hitungSewa: hitungSewa,
     berkasLabel: berkasLabel, berkasOpsi: berkasOpsi, berkasLengkap: berkasLengkap,
     hariIni: hariIni, jamIni: jamIni, tglId: tglId, tglPendek: tglPendek, tglPanjang: tglPanjang,
     bulanId: bulanId, selisihHari: selisihHari, tambahHari: tambahHari, relatif: relatif, jamDari: jamDari,

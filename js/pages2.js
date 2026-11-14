@@ -1757,14 +1757,23 @@
       const sewa = this.sewaBulan(bl);
       const pilihTgl = Z.Simpan.ambil('kalTgl', '');
 
-      // Berapa sewa berjalan di tiap tanggal
-      const perHari = {};
+      // Apa yang terjadi di tiap tanggal: sewa berjalan, yang MULAI hari itu,
+      // yang KEMBALI hari itu, dan servis terjadwal. Sekadar jumlah sewa tidak
+      // cukup — pemilik perlu tahu hari mana yang sibuk serah terima.
+      const perHari = {}, mulaiHari = {}, kembaliHari = {}, servisHari = {};
       sewa.forEach(function (o) {
         const m = String(o.mulai), k = String(o.kembali || o.mulai);
+        if (m.indexOf(bl) === 0) (mulaiHari[m] = mulaiHari[m] || []).push(o);
+        if (k.indexOf(bl) === 0) (kembaliHari[k] = kembaliHari[k] || []).push(o);
         for (let d = 1; d <= hariDalamBulan(bl); d++) {
           const t = bl + '-' + String(d).padStart(2, '0');
           if (t >= m && t <= k) (perHari[t] = perHari[t] || []).push(o);
         }
+      });
+      (D().servis || []).forEach(function (sv) {
+        [sv.tanggal, sv.next].forEach(function (t) {
+          if (t && String(t).indexOf(bl) === 0) (servisHari[t] = servisHari[t] || []).push(sv);
+        });
       });
       const puncak = Object.keys(perHari).reduce(function (a, t) {
         return Math.max(a, perHari[t].length); }, 0);
@@ -1809,10 +1818,29 @@
         if (n) kelas.push('ada');
         // Empat tingkat kepadatan supaya pola ramai/sepi terbaca sekilas
         if (n && puncak) kelas.push('p' + Math.min(4, Math.ceil(n / puncak * 4)));
+        const nM = (mulaiHari[t] || []).length;
+        const nK = (kembaliHari[t] || []).length;
+        const nS = (servisHari[t] || []).length;
+        if (nM) kelas.push('ada-mulai');
+        if (nK) kelas.push('ada-kembali');
+        if (nS) kelas.push('ada-servis');
+
+        const ket = [n ? n + ' sewa berjalan' : 'tidak ada sewa',
+                     nM ? nM + ' mulai' : '', nK ? nK + ' kembali' : '',
+                     nS ? nS + ' servis' : ''].filter(Boolean).join(', ');
+
         sel += '<button class="' + kelas.join(' ') + '" data-kal-tgl="' + t + '" ' +
-          'aria-label="' + esc(Z.tglId(t)) + ', ' + n + ' sewa">' +
+          'aria-label="' + esc(Z.tglId(t)) + ': ' + esc(ket) + '">' +
           '<span class="kal-angka">' + d + '</span>' +
-          (n ? '<span class="kal-jml">' + n + '</span>' : '') + '</button>';
+          (n ? '<span class="kal-jml">' + n + '</span>' : '') +
+          ((nM || nK || nS)
+            ? '<span class="kal-titik">' +
+                (nM ? '<i class="t-mulai" title="Mulai sewa"></i>' : '') +
+                (nK ? '<i class="t-kembali" title="Jatuh tempo kembali"></i>' : '') +
+                (nS ? '<i class="t-servis" title="Servis"></i>' : '') +
+              '</span>'
+            : '') +
+          '</button>';
       }
       // Lengkapi baris terakhir supaya kisi selalu kelipatan 7 dan tidak ada
       // baris pendek yang membuat kotak-kotaknya melar.
@@ -1826,7 +1854,34 @@
         '<div class="kal-ket"><span class="kal-ket-l">Sepi</span>' +
           [1, 2, 3, 4].map(function (i) { return '<i class="kal-kotak p' + i + '"></i>'; }).join('') +
           '<span class="kal-ket-l">Ramai</span></div>' +
+        '<div class="kal-legenda">' +
+          '<span><i class="t-mulai"></i>Mulai sewa</span>' +
+          '<span><i class="t-kembali"></i>Jatuh tempo kembali</span>' +
+          '<span><i class="t-servis"></i>Servis</span>' +
+        '</div>' +
       '</section>';
+
+      /* Ringkasan kejadian pada tanggal yang dipilih — menjawab "hari ini saya
+         harus menyerahkan berapa unit dan menerima berapa unit". */
+      if (pilihTgl) {
+        const kM = mulaiHari[pilihTgl] || [], kK = kembaliHari[pilihTgl] || [],
+              kS = servisHari[pilihTgl] || [];
+        html += '<section class="kartu kartu-rapat"><div class="kal-ringkas">' +
+          ringkasKotak('Berjalan', (perHari[pilihTgl] || []).length, 'order') +
+          ringkasKotak('Mulai', kM.length, 'kunci') +
+          ringkasKotak('Kembali', kK.length, 'jam') +
+          ringkasKotak('Servis', kS.length, 'perkakas') +
+        '</div>' +
+        (kS.length
+          ? '<div class="t-sm t-var" style="margin-top:9px;line-height:1.5">' +
+            kS.map(function (sv) {
+              const u = unit(sv.unit);
+              return Z.Ikon('perkakas', 12) + ' ' + esc(sv.jenis || 'Servis') + ' — ' +
+                     esc(u.nama || sv.unit) + (u.plat ? ' (' + esc(u.plat) + ')' : '');
+            }).join('<br>') + '</div>'
+          : '') +
+        '</section>';
+      }
 
       /* ---------- Daftar penyewa ---------- */
       const tampil = pilihTgl && perHari[pilihTgl] ? perHari[pilihTgl] : sewa;
@@ -1877,6 +1932,13 @@
     }
   };
 
+  /** Satu kotak angka pada ringkasan harian kalender. */
+  function ringkasKotak(label, nilai, ikon) {
+    return '<div class="kal-rk' + (nilai ? '' : ' nol') + '">' +
+      '<span class="kal-rk-ikon">' + Z.Ikon(ikon, 14) + '</span>' +
+      '<b>' + nilai + '</b><span>' + esc(label) + '</span></div>';
+  }
+
   /** Satu penyewa pada daftar kalender: orangnya, motornya, dan masa sewanya. */
   function barisKalender(o) {
     const c = pel(o.pelanggan), u = unit(o.unit);
@@ -1921,6 +1983,162 @@
   }
   function namaBulanPanjang(bl) { return Z.bulanId(bl); }
 
+  /* ================================================================
+   * GALERI FOTO
+   * Semua bukti foto yang tersimpan di seluruh order — serah terima maupun
+   * pengembalian — dikumpulkan di satu tempat. Sebelumnya foto hanya bisa
+   * dilihat satu per satu lewat detail order, jadi sulit menengok kembali
+   * kondisi sebuah unit dari waktu ke waktu.
+   * ================================================================ */
+  Hal.galeri = {
+    judul: 'Galeri Foto', nav: 'lainnya',
+
+    /** Ratakan seluruh foto dari semua order menjadi satu daftar. */
+    kumpulkan: function () {
+      const out = [];
+      (D().pesanan || []).forEach(function (o) {
+        [['serah', o.serah, 'Serah terima'], ['kembali', o.pengembalian, 'Pengembalian']]
+          .forEach(function (bag) {
+            const rec = bag[1];
+            if (!rec || !rec.foto) return;
+            Object.keys(rec.foto).forEach(function (k) {
+              out.push({
+                url: rec.foto[k], sudut: k, jenis: bag[0], jenisLabel: bag[2],
+                order: o.id, unit: o.unit, pelanggan: o.pelanggan,
+                tanggal: String(rec.at || o.mulai || '').slice(0, 10)
+              });
+            });
+          });
+      });
+      return out.sort(function (a, b) { return String(b.tanggal).localeCompare(String(a.tanggal)); });
+    },
+
+    render: function () {
+      const semua = this.kumpulkan();
+      const fJenis = Z.Simpan.ambil('galJenis', 'semua');
+      const fSudut = Z.Simpan.ambil('galSudut', 'semua');
+      const fUnit  = Z.Simpan.ambil('galUnit', 'semua');
+
+      const tampil = semua.filter(function (x) {
+        if (fJenis !== 'semua' && x.jenis !== fJenis) return false;
+        if (fSudut !== 'semua' && x.sudut !== fSudut) return false;
+        if (fUnit !== 'semua' && x.unit !== fUnit) return false;
+        return true;
+      });
+
+      // Sudut yang benar-benar ada fotonya, memakai nama dari Pengaturan
+      const sudutAda = {};
+      semua.forEach(function (x) { sudutAda[x.sudut] = 1; });
+
+      // Unit yang punya foto saja — daftar armada penuh tidak berguna di sini
+      const unitAda = {};
+      semua.forEach(function (x) { if (x.unit) unitAda[x.unit] = 1; });
+
+      let html = '<section><div class="seksi-head">' +
+        '<div style="display:flex;align-items:center;gap:9px;min-width:0">' +
+        '<button class="ikon-btn" data-nav="lainnya" aria-label="Kembali">' + Z.Ikon('panahKiri', 20) + '</button>' +
+        '<div style="min-width:0"><h1 class="t-judul">Galeri Foto</h1>' +
+        '<div class="t-sm t-var">' + semua.length + ' foto dari ' +
+        Object.keys(unitAda).length + ' unit</div></div></div></div></section>';
+
+      if (!semua.length) {
+        return html + '<section class="kartu">' + U.kosong('kamera', 'Belum ada foto',
+          'Foto akan muncul di sini setelah Anda mengunggah bukti serah terima pada sebuah order.') +
+          '</section>';
+      }
+
+      /* ---------- Saringan ---------- */
+      const chip = function (atr, nilai, teks, aktif) {
+        return '<button class="chip' + (aktif ? ' on' : '') + '" data-gal="' + atr +
+          '" data-nilai="' + esc(nilai) + '">' + esc(teks) + '</button>';
+      };
+      html += '<section>' +
+        '<div class="chips">' +
+          chip('jenis', 'semua', 'Semua tahap', fJenis === 'semua') +
+          chip('jenis', 'serah', 'Serah terima', fJenis === 'serah') +
+          chip('jenis', 'kembali', 'Pengembalian', fJenis === 'kembali') +
+        '</div>' +
+        '<div class="chips" style="margin-top:7px">' +
+          chip('sudut', 'semua', 'Semua sudut', fSudut === 'semua') +
+          Object.keys(sudutAda).map(function (k) {
+            return chip('sudut', k, labelSudut(k), fSudut === k);
+          }).join('') +
+        '</div>' +
+        (Object.keys(unitAda).length > 1
+          ? '<div class="chips" style="margin-top:7px">' +
+              chip('unit', 'semua', 'Semua unit', fUnit === 'semua') +
+              Object.keys(unitAda).map(function (id) {
+                const u = unit(id);
+                return chip('unit', id, u.plat || u.nama || id, fUnit === id);
+              }).join('') +
+            '</div>'
+          : '') +
+      '</section>';
+
+      /* ---------- Kisi foto, dikelompokkan per bulan ---------- */
+      if (!tampil.length) {
+        html += '<section class="kartu">' + U.kosong('cari', 'Tidak ada yang cocok',
+          'Tidak ada foto yang sesuai saringan ini.') + '</section>';
+        return html;
+      }
+
+      const perBulan = {};
+      tampil.forEach(function (x) {
+        const bl = (x.tanggal || '').slice(0, 7) || 'lainnya';
+        (perBulan[bl] = perBulan[bl] || []).push(x);
+      });
+
+      Object.keys(perBulan).sort().reverse().forEach(function (bl) {
+        html += '<section>' +
+          '<h3 class="t-seksi">' + esc(bl === 'lainnya' ? 'Tanpa tanggal' : Z.bulanId(bl)) +
+          ' <span class="t-var">(' + perBulan[bl].length + ')</span></h3>' +
+          '<div class="gal-kisi">' +
+            perBulan[bl].map(function (x) {
+              const u = unit(x.unit), c = pel(x.pelanggan);
+              return '<button class="gal-sel" data-gal-buka="' + esc(x.url) + '" ' +
+                'data-gal-ket="' + esc([labelSudut(x.sudut), x.jenisLabel,
+                  u.nama || '', c.nama || '', Z.tglPendek(x.tanggal)].filter(Boolean).join(' • ')) + '">' +
+                '<img src="' + esc(x.url) + '" alt="' + esc(labelSudut(x.sudut)) + '" loading="lazy" ' +
+                  'onerror="this.closest(\'button\').classList.add(\'gagal\')">' +
+                '<span class="gal-gagal">' + esc(labelSudut(x.sudut)) + '</span>' +
+                '<span class="gal-tag' + (x.jenis === 'kembali' ? ' balik' : '') + '">' +
+                  (x.jenis === 'kembali' ? 'Kembali' : 'Serah') + '</span>' +
+              '</button>';
+            }).join('') +
+          '</div></section>';
+      });
+
+      return html;
+    },
+
+    setelah: function (root) {
+      Z.$$('[data-gal]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          Z.Simpan.taruh('gal' + b.getAttribute('data-gal').charAt(0).toUpperCase() +
+                         b.getAttribute('data-gal').slice(1), b.getAttribute('data-nilai'));
+          global.App.render();
+        });
+      });
+      Z.$$('[data-gal-buka]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          lihatFoto(b.getAttribute('data-gal-buka'), b.getAttribute('data-gal-ket'));
+        });
+      });
+    }
+  };
+
+  /** Pratinjau satu foto ukuran penuh beserta keterangannya. */
+  function lihatFoto(url, ket) {
+    Z.Sheet.buka({
+      judul: 'Foto', isi:
+        '<div class="foto-penuh"><img src="' + esc(url) + '" alt="' + esc(ket || 'Foto') + '"></div>' +
+        '<div class="t-sm t-var" style="margin-top:9px;text-align:center;line-height:1.5">' +
+          esc(ket || '') + '</div>' +
+        '<a class="btn btn-netral btn-blok" style="margin-top:11px" href="' + esc(url) +
+          '" target="_blank" rel="noopener">' + Z.Ikon('unduh', 16) + 'Buka ukuran asli</a>'
+    });
+  }
+
   Hal.lainnya = {
     judul: 'Lainnya', nav: 'lainnya',
     render: function () {
@@ -1928,6 +2146,7 @@
         ['keuangan', 'dompet', 'Keuangan & Arus Kas', 'Pemasukan, pengeluaran, laba bersih'],
         ['servis', 'perkakas', 'Servis & Pajak', 'Riwayat servis dan jatuh tempo STNK'],
         ['kalender', 'kalender', 'Kalender Penyewa', 'Lihat siapa yang menyewa di bulan ini'],
+        ['galeri', 'kamera', 'Galeri Foto', 'Semua bukti serah terima & pengembalian'],
         ['laporan', 'grafik', 'Laporan', 'Statistik bulanan, PDF & Excel'],
         ['notifikasi', 'wa', 'WhatsApp & Notifikasi', 'Template pesan, blast, antrean'],
         ['struk', 'cetak', 'Model Struk & Printer', 'Atur tata letak struk thermal 58/80 mm'],
@@ -2969,7 +3188,8 @@
           '<div class="kosong-ikon" style="background:var(--danger-bg);color:var(--danger)">' + Z.Ikon('x', 26) + '</div>' +
           '<h2 class="t-judul">Kwitansi tidak ditemukan</h2>' +
           '<p class="t-sm t-var" style="margin-top:6px">Kode <b>' + esc(param.kode || '') + '</b> tidak terdaftar di sistem kami.</p>' +
-          '<button class="btn btn-netral" style="margin-top:14px" data-nav="beranda">Kembali</button></section>';
+          '<p class="t-sm t-var" style="margin-top:10px">Periksa kembali tautan yang Anda terima, ' +
+          'atau hubungi pemilik rental.</p></section>';
       }
       return '<section class="kartu" style="text-align:center;padding:26px 20px">' +
         '<div class="kosong-ikon" style="background:' + (h.sah ? 'var(--ok-bg)' : 'var(--danger-bg)') +
@@ -3036,6 +3256,11 @@
       if (Hal.verifikasi.hasil !== undefined) return;
       global.App.kirim('verifikasi', { kode: param.kode }, { diam: true, publik: true }).then(function (r) {
         Hal.verifikasi.hasil = r.success ? r.data : null;
+        // Identitas usaha hanya tersedia dari jawaban ini — halaman publik
+        // tidak punya sesi untuk mengambil pengaturan merek sendiri.
+        if (r.success && r.data && r.data.merek && global.Merek && global.Merek.seedPublik) {
+          global.Merek.seedPublik(r.data.merek);
+        }
         global.App.render();
       });
     }

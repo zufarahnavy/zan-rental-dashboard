@@ -608,9 +608,104 @@ untuk apa saja, masuk dari mana saja”, bukan sekadar totalnya.
 Gunakan panah kiri/kanan untuk berpindah bulan; tombol **Kembali ke bulan ini** muncul
 saat Anda sedang melihat bulan lain.
 
+### Titik penanda di tiap tanggal
+
+| Titik | Artinya |
+|---|---|
+| 🟢 hijau | Ada sewa yang **mulai** hari itu — siapkan serah terima |
+| 🟠 jingga | Ada sewa yang **jatuh tempo kembali** hari itu |
+| 🔵 biru | Ada **servis** tercatat atau terjadwal hari itu |
+
+Setelah satu tanggal dipilih, muncul ringkasan empat angka: berapa sewa **berjalan**,
+berapa **mulai**, berapa **kembali**, dan berapa **servis** pada hari itu — beserta
+daftar servisnya bila ada.
+
 ---
 
-## Bagian L — Menghapus banyak data sekaligus
+## Bagian L — Tarif mingguan & paket khusus
+
+**Armada → Ubah Unit.** Selain *Harga / hari*, tiap unit bisa diberi:
+
+* **Harga / minggu** — dipakai otomatis untuk sewa 7 hari ke atas.
+* **Paket khusus** — maksimal 6 per unit, misalnya "Paket Bulanan, 30 hari, Rp 2.000.000".
+
+### Aturan yang dipakai sistem
+
+Urutannya sengaja bisa Anda tebak, bukan perhitungan tersembunyi:
+
+1. **Paket** yang jumlah harinya **pas** sama dengan lama sewa selalu menang.
+2. Kalau tidak ada paket yang pas dan ada tarif mingguan, lama sewa dipecah
+   menjadi *minggu penuh + sisa hari* — **tetapi hanya bila hasilnya lebih murah**
+   daripada tarif harian biasa.
+3. Selain itu, lama sewa × tarif harian.
+
+> Poin 2 penting: kalau tarif mingguan Anda isi lebih mahal daripada 7 × tarif
+> harian, sistem tetap memakai tarif harian. Penyewa tidak akan dirugikan karena
+> menyewa lebih lama.
+
+Dasar tarif yang terpakai ditampilkan di form order (misal *"Sewa 1 minggu + 2 hari"*
+dengan lencana **MINGGUAN**), jadi Anda selalu tahu angka itu datang dari mana.
+
+### Potongan harga
+
+Kolom **Diskon** di Rincian Biaya bersifat opsional — biarkan 0 bila tidak dipakai.
+Nilainya mengurangi total, dan ikut tercetak di kwitansi PDF, struk, serta tautan
+kwitansi online.
+
+---
+
+## Bagian M — Ketersediaan armada saat membuat order
+
+Setelah tanggal sewa diisi, daftar unit menampilkan **semua** motor, bukan hanya yang
+bebas. Motor yang tidak bisa dipakai tetap terlihat, lengkap dengan alasannya:
+
+| Tanda | Artinya |
+|---|---|
+| **Disewa** | Sudah dipesan pada rentang itu — tanggal bentroknya disebutkan |
+| **Servis** | Sedang di bengkel, atau ada jadwal servis yang jatuh di rentang itu |
+| **Nonaktif** | Unit dimatikan di Armada |
+
+Motor yang tidak tersedia tidak bisa diklik. Kalau tidak ada satu pun yang bebas,
+muncul peringatan dengan rentang tanggalnya supaya Anda tahu harus menggeser ke mana.
+
+> Sebelumnya motor yang bentrok hanya hilang dari daftar tanpa penjelasan — Anda
+> tidak tahu apakah motornya terhapus, atau memang sedang dipakai.
+
+---
+
+## Bagian N — Galeri foto
+
+**Lainnya → Galeri Foto.** Seluruh bukti foto dari semua order dikumpulkan di satu
+tempat, dikelompokkan per bulan dan bisa disaring menurut:
+
+* **tahap** — serah terima atau pengembalian;
+* **sudut** — mengikuti nama kotak foto yang Anda atur di Pengaturan;
+* **unit** — hanya motor yang memang punya foto.
+
+Ketuk satu foto untuk melihat ukuran penuh beserta keterangannya (sudut, tahap, unit,
+penyewa, tanggal), dan tautan untuk membuka berkas aslinya di Drive.
+
+---
+
+## Bagian O — Tautan kwitansi: halaman terpisah untuk penyewa
+
+Tautan kwitansi (`.../#/v/KODE`) kini membuka **halaman yang berdiri sendiri** —
+bukan lagi dashboard Anda dengan menu disembunyikan sebagian.
+
+Yang dilihat penyewa hanya: logo dan nama usaha Anda, status kwitansi, rincian
+pesanannya, linimasa perjalanan sewa, dan rincian biaya. **Tidak ada** menu Beranda,
+Order, Armada, Pelanggan, Keuangan, atau Lainnya — semua itu bersifat privat bagi
+pengelola.
+
+Logo dan nama usaha pada halaman ini diambil dari pengaturan Anda dan dikirim bersama
+data kwitansi, sehingga tampil benar walau penyewa membukanya tanpa login.
+
+> Nama penyewa tetap disamarkan (`D•••s A••••a`) dan nomor WA tidak pernah
+> ditampilkan, jadi tautan yang terlanjur tersebar tidak membocorkan data pelanggan.
+
+---
+
+## Bagian P — Menghapus banyak data sekaligus
 
 Di menu **Order**, **Armada**, dan **Pelanggan** ada tombol **Pilih**. Setelah ditekan,
 setiap kartu mendapat kotak centang dan muncul bar aksi di bawah.
