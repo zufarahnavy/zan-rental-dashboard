@@ -28,6 +28,12 @@
    * @returns {boolean} false bila jawaban server tidak memuat rincian ID
    *   (misalnya backend belum diperbarui) — pemanggil harus memuat ulang.
    */
+  /** Status berkas paling awal (dipakai sebagai nilai bawaan pelanggan baru). */
+  function berkasOpsiPertama() {
+    const o = Z.berkasOpsi();
+    return (o[0] && o[0].n) || 'Belum ada berkas';
+  }
+
   function terapkanHapus(data) {
     if (!data || typeof data !== 'object') return false;
     const D = global.App && global.App.data;
@@ -60,6 +66,16 @@
       });
     }
 
+    // Hapus transaksi kas berdiri sendiri (di luar penghapusan order)
+    if (!Array.isArray(data.idOrder) && Array.isArray(data.idKeuangan)) {
+      dikenali = true;
+      D.keuangan = buang(D.keuangan, 'id', data.idKeuangan);
+    }
+    if (Array.isArray(data.idServis)) {
+      dikenali = true;
+      D.servis = buang(D.servis, 'id', data.idServis);
+      D.keuangan = buang(D.keuangan, 'id', data.idKeuangan || []);
+    }
     if (Array.isArray(data.idUnit)) { dikenali = true; D.units = buang(D.units, 'id', data.idUnit); }
     if (Array.isArray(data.idPelanggan)) { dikenali = true; D.pelanggan = buang(D.pelanggan, 'id', data.idPelanggan); }
 
@@ -504,7 +520,7 @@
           '<b style="color:#ff9c9c">' + perhatian.filter(function (p) { return p.tipe === 'telat'; }).length + '</b> terlambat • ' +
           '<b>' + r.disewa + '</b> aktif di jalan' +
         '</div>' +
-        '<div class="btn-grid" style="margin-top:12px">' +
+        '<div class="aksi-blok">' +
           '<button class="btn btn-utama" data-nav="order-baru">' + Z.Ikon('plus', 18) + 'Order Baru</button>' +
           '<button class="btn" style="background:rgba(255,255,255,.16);color:#fff" data-aksi="catat-keluar">' +
             Z.Ikon('dompet', 18) + 'Pengeluaran</button>' +
@@ -724,10 +740,10 @@
         '<div class="seksi-head"><div><h1 class="t-hero" style="font-size:22px">Manajemen Order</h1>' +
         '<div class="t-sm t-var">Kelola sewa motor & jadwal pengembalian armada</div></div>' +
         '<button class="ikon-btn" data-nav="kalender" title="Kalender ketersediaan">' + Z.Ikon('kalender', 21) + '</button></div>' +
-        '<div class="btn-grid" style="margin-top:12px">' +
+        '<div class="aksi-blok">' +
         '<button class="btn btn-utama" data-nav="order-baru">' + Z.Ikon('plus', 18) + 'Buat Order Baru</button>' +
-        '<button class="btn btn-netral" data-aksi="ekspor-order">' + Z.Ikon('unduh', 18) + 'Ekspor CSV</button></div>' +
-        '<div style="display:flex;justify-content:flex-end;margin-top:8px">' + Pilih.tombol('order') + '</div>' +
+        '<button class="btn btn-netral" data-aksi="ekspor-order">' + Z.Ikon('unduh', 18) + 'Ekspor CSV</button>' +
+        '<div class="pilih-sel">' + Pilih.tombol('order') + '</div></div>' +
       '</section>';
 
       html += '<section class="grid4">' +
@@ -1207,7 +1223,8 @@
             '<button class="ikon-btn" data-aksi="ganti-pelanggan" aria-label="Ganti">' + Z.Ikon('sinkron', 18) + '</button>' +
           '</div>' +
           '<div class="grid2" style="gap:8px">' +
-            miniInfo('perisai', 'Status KYC', c.kyc || 'Belum', c.kyc === 'Lengkap' ? 'var(--ok)' : 'var(--warn)') +
+            miniInfo('perisai', Z.berkasLabel(), c.kyc || berkasOpsiPertama(),
+              Z.berkasLengkap(c.kyc) ? 'var(--ok)' : 'var(--warn)') +
             miniInfo('bintang', 'Riwayat sewa', c.totalSewa + 'x • ' + Z.rpSingkat(c.totalBelanja), '') +
           '</div></div>';
       }
@@ -1585,16 +1602,23 @@
         '<div><h1 class="t-hero" style="font-size:22px">Katalog Armada</h1>' +
         '<div class="t-sm t-var">Pantau ketersediaan, performa & jadwal servis</div></div>' +
         '<span class="badge badge-ink">' + hitung.semua + ' motor</span></div>' +
-        '<div class="btn-grid" style="margin-top:12px">' +
+        '<div class="aksi-blok">' +
         '<button class="btn btn-utama" data-aksi="unit-baru">' + Z.Ikon('plus', 18) + 'Tambah Motor</button>' +
-        '<button class="btn btn-netral" data-aksi="ekspor-unit">' + Z.Ikon('unduh', 18) + 'Laporan CSV</button></div>' +
-        '<div style="display:flex;justify-content:flex-end;margin-top:8px">' + Pilih.tombol('armada') + '</div></section>';
+        '<button class="btn btn-netral" data-aksi="ekspor-unit">' + Z.Ikon('unduh', 18) + 'Laporan CSV</button>' +
+        '<div class="pilih-sel">' + Pilih.tombol('armada') + '</div></div></section>';
 
       html += '<section class="grid4">' +
         pilCounter('Total', hitung.semua, '') +
         pilCounter('Tersedia', hitung.tersedia, 'var(--ok)') +
         pilCounter('Disewa', hitung.disewa, 'var(--ungu)') +
         pilCounter('Servis', hitung.servis, 'var(--warn)') + '</section>';
+
+      // Armada memperlihatkan keadaan armada; pekerjaan perawatan dikelola di
+      // halaman Servis & Pajak. Tautan ini membuat pembagian itu terlihat.
+      if (hitung.servis || units.some(function (u) { return u.servisNext <= 500; })) {
+        html += '<section><button class="btn btn-netral btn-blok btn-kecil" data-nav="servis">' +
+          Z.Ikon('perkakas', 15) + 'Kelola servis &amp; pajak armada</button></section>';
+      }
 
       html += '<section>' +
         '<div style="display:flex;gap:9px;align-items:center">' +
@@ -1672,9 +1696,18 @@
         '<div class="grid2"><div class="field"><label>Tipe</label><select class="sel" data-u="tipe">' +
         ['Matic', 'Retro Matic', 'Sport Matic', 'Maxi Scooter', 'Eco Matic', 'Adventure', 'Bebek', 'Sport'].map(function (t) {
           return '<option' + (u.tipe === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></div>' +
+        /* "Servis" sengaja tidak bisa dipilih manual di sini. Dulu status itu
+           bisa diatur dari dua tempat — form ini dan form servis — sehingga
+           unit bisa berstatus "Servis" tanpa riwayat servis, atau sebaliknya.
+           Sekarang hanya pencatatan servis yang boleh mengubahnya. Opsi lama
+           tetap ditampilkan bila unit kebetulan sedang berstatus itu, supaya
+           data lama tidak berubah diam-diam saat disimpan. */
         '<div class="field"><label>Status</label><select class="sel" data-u="status">' +
-        ['Tersedia', 'Disewa', 'Servis'].map(function (t) {
-          return '<option' + (u.status === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></div></div>' +
+        ['Tersedia', 'Disewa'].concat(u.status === 'Servis' ? ['Servis'] : []).map(function (t) {
+          return '<option' + (u.status === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') +
+        '</select>' +
+        '<div class="bantu">Status “Servis” diatur lewat <b>Catat Servis</b>, bukan di sini.</div>' +
+        '</div></div>' +
         '<div class="grid2"><div class="field"><label>Odometer (km)</label><input class="inp" type="number" data-u="odo" value="' + Z.num(u.odo) + '"></div>' +
         '<div class="field"><label>Jatuh tempo pajak STNK</label><input class="inp" type="date" data-u="pajak" value="' + esc(u.pajak) + '"></div></div>' +
         '<div class="field"><label>Tampilan kartu (ilustrasi)</label>' +
@@ -1686,11 +1719,27 @@
               ';border:2.5px solid ' + (artNow[2] === w ? 'var(--kuning)' : 'transparent') + '"></button>'; }).join('') + '</div>' +
           '<div class="bantu" style="margin-top:8px">Atau unggah foto asli unit:</div>' +
           '<input class="inp" type="file" accept="image/*" id="fotoUnitFile" style="margin-top:6px;padding:9px">' +
+          /* Catatan ini sengaja SELALU terlihat, bukan di dalam panduan yang
+             terlipat: inilah syarat gambar yang harus diketahui sebelum
+             memilih berkas, bukan sesudahnya. */
+          '<div class="spek-gambar">' +
+            '<div class="spek-judul">' + Z.Ikon('info', 14) + 'Gambar untuk tampilan kartu</div>' +
+            '<ul class="spek-list">' +
+              '<li><b>Bentuk mendatar, sekitar 2:1</b> (contoh 900 × 450 px). Kartu armada melebar, ' +
+                'jadi foto tegak akan terpotong atas-bawahnya.</li>' +
+              '<li><b>Format JPG atau PNG.</b> Ukuran berkas bebas — otomatis dikecilkan ke lebar ' +
+                '900 px sebelum dikirim, jadi tidak boros kuota.</li>' +
+              '<li>Bagian <b>tengah gambar</b> yang paling aman: tepi kiri-kanan bisa terpangkas ' +
+                'mengikuti lebar layar.</li>' +
+              '<li>Tanpa unggahan, kartu memakai <b>ilustrasi bawaan</b> yang bisa dipilih di atas.</li>' +
+            '</ul>' +
+          '</div>' +
           panduanUnggah([
             'Ambil <b>mendatar (landscape)</b> — kartu armada berbentuk melebar, foto tegak akan terpotong atas-bawahnya.',
             'Motor utuh dari <b>serong depan</b>, isi sekitar ¾ bingkai, latar polos dan terang.',
-            'Hindari foto gelap atau memotret berlawanan arah matahari.'
-          ], 'JPG atau PNG. Ukuran berapa pun boleh — otomatis dikecilkan ke 900 px sebelum diunggah.') +
+            'Hindari foto gelap atau memotret berlawanan arah matahari.',
+            'Lap dulu bodinya — bercak dan debu sangat terlihat setelah gambar diperkecil.'
+          ], 'Setelah dipilih, pratinjau di atas langsung berubah supaya bisa dicek sebelum disimpan.') +
         '</div>';
 
       const wrap = Z.Sheet.buka({
@@ -1793,7 +1842,40 @@
               : '<button class="btn btn-kecil btn-netral" data-order="' + esc(order ? order.id : '') + '">Detail Order</button>')) +
           '<button class="btn btn-kecil btn-netral" data-unit-edit="' + esc(u.id) + '">' + Z.Ikon('pensil', 15) + 'Ubah</button>' +
         '</div>' +
+        /* Perawatan unit ini: ringkasan singkat + satu jalan masuk ke form
+           servis yang sama dengan yang dipakai halaman Servis & Pajak. */
+        riwayatServisUnit(u) +
       '</div></article>';
+  }
+
+  /**
+   * Ringkasan perawatan satu unit di dalam kartu detailnya.
+   * Armada memperlihatkan KEADAAN unit; pencatatannya tetap lewat satu form
+   * servis yang sama, supaya tidak ada dua tempat menulis hal yang sama.
+   */
+  function riwayatServisUnit(u) {
+    const srv = (D().servis || []).filter(function (s) { return s.unit === u.id; })
+      .sort(function (a, b) { return String(b.tanggal).localeCompare(String(a.tanggal)); });
+    const dua = srv.slice(0, 2);
+    const biaya = srv.reduce(function (a, s) { return a + Z.num(s.biaya); }, 0);
+
+    return '<div style="margin-top:11px;padding-top:11px;border-top:1px solid var(--c-highest)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px">' +
+        '<span class="t-cap t-var">PERAWATAN</span>' +
+        (srv.length ? '<span class="t-sm t-var">' + srv.length + '× • ' + Z.rpSingkat(biaya) + '</span>' : '') +
+      '</div>' +
+      (dua.length
+        ? dua.map(function (s) {
+            return '<div class="t-sm" style="display:flex;justify-content:space-between;gap:8px;' +
+              'padding:3px 0;line-height:1.4">' +
+              '<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+                esc(s.jenis) + '</span>' +
+              '<span class="t-var" style="flex:none">' + esc(Z.tglPendek(s.tanggal)) + '</span></div>';
+          }).join('')
+        : '<div class="t-sm t-var">Belum ada riwayat servis untuk unit ini.</div>') +
+      '<button class="btn btn-kecil btn-netral btn-blok" style="margin-top:8px" ' +
+        'data-servis-unit="' + esc(u.id) + '">' + Z.Ikon('perkakas', 15) + 'Catat Servis Unit Ini</button>' +
+    '</div>';
   }
 
   function barisUnit(u) {
@@ -1889,7 +1971,7 @@
         langganan: semua.filter(function (p) { return p.tag === 'Langganan'; }).length,
         baru: semua.filter(function (p) { return p.dibuat >= Z.tambahHari(Z.hariIni(), -30) || (p.terakhir >= Z.tambahHari(Z.hariIni(), -30) && p.totalSewa <= 1); }).length,
         masalah: semua.filter(function (p) { return p.tag === 'Bermasalah'; }).length,
-        kyc: semua.filter(function (p) { return p.kyc === 'Lengkap'; }).length
+        kyc: semua.filter(function (p) { return Z.berkasLengkap(p.kyc); }).length
       };
       const daftar = semua.filter(function (p) {
         if (f === 'langganan' && p.tag !== 'Langganan') return false;
@@ -1905,16 +1987,16 @@
         '<div><h1 class="t-hero" style="font-size:22px">CRM & Data Pelanggan</h1>' +
         '<div class="t-sm t-var">Basis penyewa, riwayat sewa, verifikasi, dan loyalitas</div></div>' +
         '<span class="badge badge-ink">' + hitung.semua + '</span></div>' +
-        '<div class="btn-grid" style="margin-top:12px">' +
+        '<div class="aksi-blok">' +
         '<button class="btn btn-utama" data-aksi="pelanggan-baru">' + Z.Ikon('orang', 18) + 'Tambah Pelanggan</button>' +
-        '<button class="btn btn-netral" data-aksi="ekspor-pelanggan">' + Z.Ikon('unduh', 18) + 'Ekspor Kontak</button></div>' +
-        '<div style="display:flex;justify-content:flex-end;margin-top:8px">' + Pilih.tombol('pelanggan') + '</div></section>';
+        '<button class="btn btn-netral" data-aksi="ekspor-pelanggan">' + Z.Ikon('unduh', 18) + 'Ekspor Kontak</button>' +
+        '<div class="pilih-sel">' + Pilih.tombol('pelanggan') + '</div></div></section>';
 
       html += '<section class="grid2">' +
         U.kartuKpi({ label: 'Total Terdaftar', nilai: hitung.semua, ikon: 'orang', tagKanan: 'penyewa' }) +
         U.kartuKpi({ label: 'Langganan', nilai: hitung.langganan, ikon: 'bintang', warna: 'kuning',
                      tagKanan: hitung.semua ? Math.round(hitung.langganan / hitung.semua * 100) + '% loyal' : '' }) +
-        U.kartuKpi({ label: 'KYC Lengkap', nilai: hitung.kyc, ikon: 'perisai', warna: 'ok' }) +
+        U.kartuKpi({ label: Z.berkasLabel() + ' Lengkap', nilai: hitung.kyc, ikon: 'perisai', warna: 'ok' }) +
         U.kartuKpi({ label: 'Perlu Perhatian', nilai: hitung.masalah, ikon: 'alert', warna: 'danger' }) +
       '</section>';
 
@@ -1938,7 +2020,7 @@
           { kunci: 'langganan', teks: 'Langganan', jumlah: hitung.langganan, ikon: 'bintang' },
           { kunci: 'baru', teks: 'Pelanggan Baru', jumlah: hitung.baru, titik: 'info' },
           { kunci: 'masalah', teks: 'Bermasalah', jumlah: hitung.masalah, titik: 'danger', kelas: hitung.masalah ? 'danger' : '' },
-          { kunci: 'kyc', teks: 'KYC Lengkap', jumlah: hitung.kyc, titik: 'ok' }
+          { kunci: 'kyc', teks: 'Berkas Lengkap', jumlah: hitung.kyc, titik: 'ok' }
         ], f, 'data-filter-crm') + '</section>';
 
       html += '<section style="display:flex;flex-direction:column;gap:13px">' +
@@ -1965,7 +2047,7 @@
       if (tb) tb.addEventListener('click', function () { Hal.pelanggan.form(null); });
       const ek = Z.$('[data-aksi="ekspor-pelanggan"]', root);
       if (ek) ek.addEventListener('click', function () {
-        const rows = [['ID', 'Nama', 'No WA', 'Alamat', 'Asal', 'Keterangan', 'KYC', 'Total Sewa', 'Total Belanja', 'Sewa Terakhir', 'Tag']];
+        const rows = [['ID', 'Nama', 'No WA', 'Alamat', 'Asal', 'Keterangan', Z.berkasLabel(), 'Total Sewa', 'Total Belanja', 'Sewa Terakhir', 'Tag']];
         (D().pelanggan || []).forEach(function (p) {
           rows.push([p.id, p.nama, "'" + p.wa, p.alamat, p.asal, p.ket, p.kyc, p.totalSewa, p.totalBelanja, p.terakhir, p.tag]);
         });
@@ -1977,15 +2059,17 @@
 
     /* Form pelanggan */
     form: function (id, setelahSimpan) {
-      const p = id ? pel(id) : { nama: '', wa: '', alamat: '', asal: '', ket: '', kyc: 'Belum', tag: 'Baru', catatan: '' };
+      const p = id ? pel(id) : { nama: '', wa: '', alamat: '', asal: '', ket: '', kyc: berkasOpsiPertama(), tag: 'Baru', catatan: '' };
       const isi =
         '<div class="field"><label>Nama lengkap</label><input class="inp" data-p="nama" value="' + esc(p.nama) + '" placeholder="Nama sesuai KTP"></div>' +
         '<div class="field"><label>Nomor WhatsApp</label><input class="inp" type="tel" data-p="wa" value="' + esc(p.wa) + '" placeholder="08123456789" inputmode="numeric"></div>' +
         '<div class="grid2"><div class="field"><label>Alamat / Kecamatan</label><input class="inp" data-p="alamat" value="' + esc(p.alamat) + '" placeholder="Sumbersari, Jember"></div>' +
         '<div class="field"><label>Kota asal</label><input class="inp" data-p="asal" value="' + esc(p.asal) + '" placeholder="Jember"></div></div>' +
         '<div class="field"><label>Keterangan</label><input class="inp" data-p="ket" value="' + esc(p.ket) + '" placeholder="Mahasiswa UNEJ / Tamu hotel / Karyawan"></div>' +
-        '<div class="grid2"><div class="field"><label>Status KYC</label><select class="sel" data-p="kyc">' +
-        ['Belum', 'KTP Saja', 'Lengkap'].map(function (t) { return '<option' + (p.kyc === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') +
+        '<div class="grid2"><div class="field"><label>' + esc(Z.berkasLabel()) + '</label><select class="sel" data-p="kyc">' +
+        Z.berkasOpsi().map(function (o) { return o.n; })
+          .concat(p.kyc && Z.berkasOpsi().every(function (o) { return o.n !== p.kyc; }) ? [p.kyc] : [])
+          .map(function (t) { return '<option' + (p.kyc === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') +
         '</select></div><div class="field"><label>Tag</label><select class="sel" data-p="tag">' +
         ['Baru', 'Langganan', 'Bermasalah'].map(function (t) { return '<option' + (p.tag === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') +
         '</select></div></div>' +
@@ -2044,7 +2128,7 @@
         '<div style="flex:1;min-width:0">' +
           '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
             '<b style="font-size:15px">' + esc(p.nama) + '</b>' +
-            (p.kyc === 'Lengkap' ? '<span style="color:var(--info)" title="KYC lengkap">' + Z.Ikon('perisai', 15) + '</span>' : '') +
+            (Z.berkasLengkap(p.kyc) ? '<span style="color:var(--info)" title="' + esc(Z.berkasLabel()) + ' lengkap">' + Z.Ikon('perisai', 15) + '</span>' : '') +
           '</div>' +
           '<div class="t-sm t-var" style="display:flex;align-items:center;gap:5px;margin-top:2px">' +
             Z.Ikon(p.ket && /mahasiswa/i.test(p.ket) ? 'kampus' : (p.ket && /hotel|tamu/i.test(p.ket) ? 'hotel' : 'lokasi'), 13) +

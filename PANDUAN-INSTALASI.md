@@ -371,6 +371,20 @@ seterusnya) beserta jumlah bawaannya. Saat membuat order, Anda tinggal mencentan
 dan mengatur jumlahnya — dan perlengkapan itu **otomatis muncul di kwitansi PDF,
 struk thermal, dan draft pesan WhatsApp**.
 
+### Kelengkapan berkas penyewa (dulu “KYC”)
+
+Istilah **KYC** sudah diganti menjadi sebutan yang Anda tentukan sendiri — bawaannya
+**Kelengkapan Berkas**. Di **Pengaturan → Kelengkapan Berkas** Anda bisa:
+
+* mengganti **sebutannya** (misal jadi “Syarat Sewa” atau “Jaminan”);
+* menyunting **daftar statusnya** (bawaan: *Belum ada berkas*, *KTP saja*,
+  *KTP + SIM lengkap*), sampai 8 pilihan;
+* mencentang status mana yang dihitung sebagai **lengkap** — itulah yang muncul di
+  kartu ringkasan dan saringan daftar pelanggan.
+
+Data lama yang tertulis “Lengkap” tetap terhitung, jadi tidak ada yang perlu diperbaiki
+manual.
+
 ### Metode pembayaran
 
 **Pengaturan → Metode Pembayaran.** Tambah, ubah urutan, atau hapus pilihan yang muncul
@@ -522,7 +536,81 @@ pelanggan.
 
 ---
 
-## Bagian I — Menghapus banyak data sekaligus
+## Bagian I — Servis & pajak: siapa menulis apa
+
+Dulu status “Servis” bisa diatur dari dua tempat sekaligus — form **Ubah Unit** dan
+form **Catat Servis** — sehingga sebuah motor bisa berstatus Servis tanpa riwayat
+servis, atau sebaliknya. Sekarang pembagiannya tegas:
+
+| Tempat | Gunanya |
+|---|---|
+| **Armada** | Melihat *keadaan* armada: siapa tersedia, disewa, atau di bengkel; berapa km lagi menuju servis; riwayat singkat tiap unit. |
+| **Servis & Pajak** | *Mencatat* pekerjaan perawatan: servis baru, biayanya, jadwal berikutnya, jatuh tempo STNK. |
+
+Singkatnya: **Armada memberi tahu, Servis & Pajak mencatat.** Status “Servis” kini
+hanya berubah lewat pencatatan servis, tidak bisa diketik manual di Ubah Unit.
+
+### Satu pilihan yang menentukan status
+
+Saat mencatat servis, pilih **satu** akibatnya:
+
+| Pilihan | Akibat ke unit |
+|---|---|
+| Motor masuk bengkel | Status jadi **Servis** — tidak bisa dipesan |
+| Servis sudah selesai | Status kembali **Tersedia** |
+| Hanya catatan biaya | Status **tidak diubah** — untuk mencatat servis yang sudah lampau |
+
+Unit yang sedang **Disewa** tidak akan dibebaskan oleh pilihan “selesai”, supaya
+motor yang masih di tangan penyewa tidak terlihat tersedia.
+
+### Biaya servis masuk buku kas
+
+Setiap servis berbiaya otomatis menjadi **pengeluaran** di Keuangan, dan keduanya
+saling tertaut. Menghapus riwayat servis ikut membuang baris pengeluarannya, jadi
+tidak ada biaya yatim tanpa asal-usul.
+
+---
+
+## Bagian J — Laporan harian, bulanan, tahunan
+
+**Lainnya → Laporan.** Pilih dulu jenisnya: **Harian**, **Bulanan**, atau **Tahunan**;
+pemilih tanggalnya menyesuaikan sendiri.
+
+### Mutasi arus kas
+
+Di bawah statistik ada tabel **Mutasi Arus Kas** — tiap pemasukan dan pengeluaran pada
+periode itu, lengkap dengan **saldo berjalan**. Inilah yang menjawab “uang ini keluar
+untuk apa saja, masuk dari mana saja”, bukan sekadar totalnya.
+
+### Tiga cara mengunduh
+
+| Tombol | Hasil |
+|---|---|
+| **Unduh PDF** | Dokumen rapi siap cetak: ringkasan, rincian per kategori, mutasi arus kas (maks. 300 baris), dan peringkat unit. |
+| **Unduh Excel** | Berkas `.xlsx` asli berisi **3 lembar** — Ringkasan, Mutasi Arus Kas (lengkap, tanpa batas baris), dan Per Unit. |
+| **Mutasi kas sebagai CSV** | Dibuat langsung di perangkat, tanpa menunggu server. |
+
+> Laporan tahunan bisa memuat ribuan transaksi. Versi PDF sengaja dipotong di 300
+> baris agar tidak jadi dokumen ratusan halaman — pakai versi Excel untuk daftar penuh.
+
+---
+
+## Bagian K — Kalender penyewa
+
+**Lainnya → Kalender Penyewa.** Satu bulan dalam satu layar:
+
+* Kotak tanggal diwarnai menurut **kepadatan** — makin pekat makin banyak motor keluar.
+* Angka kecil di tiap tanggal = berapa sewa yang sedang berjalan hari itu.
+* **Ketuk satu tanggal** untuk melihat siapa saja yang sedang membawa motor hari itu,
+  lengkap dengan nama penyewa, nomor WA, motor dan platnya.
+* Ketuk kartunya untuk langsung membuka detail order.
+
+Gunakan panah kiri/kanan untuk berpindah bulan; tombol **Kembali ke bulan ini** muncul
+saat Anda sedang melihat bulan lain.
+
+---
+
+## Bagian L — Menghapus banyak data sekaligus
 
 Di menu **Order**, **Armada**, dan **Pelanggan** ada tombol **Pilih**. Setelah ditekan,
 setiap kartu mendapat kotak centang dan muncul bar aksi di bawah.

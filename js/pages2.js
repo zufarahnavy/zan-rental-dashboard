@@ -17,6 +17,22 @@
      Berada di lingkup modul karena dipakai oleh DUA fungsi berbeda —
      perakit HTML halaman dan penggambar ulang saat daftar diubah. */
   /** Satu baris pengaturan kotak foto serah terima: nama + saklar wajib + hapus. */
+  /** Baris pengaturan untuk satu pilihan status berkas penyewa. */
+  function berkasBarisHtml(arr) {
+    if (!arr.length) return '<div class="t-sm t-var" style="padding:10px 2px">Belum ada pilihan status.</div>';
+    return arr.map(function (x, i) {
+      return '<div class="lengkap-baris on">' +
+        '<input class="inp lengkap-nama-inp" data-bknama="' + i + '" value="' + esc(x.n) +
+          '" maxlength="28" placeholder="Nama status">' +
+        '<label class="pil-wajib" title="Dihitung sebagai berkas lengkap">' +
+          '<input type="checkbox" data-bkok="' + i + '"' + (x.ok ? ' checked' : '') + '>' +
+          '<span>Lengkap</span></label>' +
+        '<button type="button" class="ikon-btn ikon-btn-kecil" data-bkhapus="' + i + '" aria-label="Hapus">' +
+          Z.Ikon('sampah', 16) + '</button>' +
+      '</div>';
+    }).join('');
+  }
+
   function fotoBarisHtml(arr) {
     if (!arr.length) return '<div class="t-sm t-var" style="padding:10px 2px">Belum ada kotak foto.</div>';
     return arr.map(function (x, i) {
@@ -99,9 +115,10 @@
         '<h1 class="t-hero" style="font-size:22px">Keuangan & Arus Kas</h1>' +
         '<span class="badge badge-netral">' + esc(rentang.label) + '</span></div>' +
         '<span class="badge badge-ok"><i class="titik denyut"></i>Tersinkron</span></div>' +
-        '<div class="btn-grid" style="margin-top:12px">' +
+        '<div class="aksi-blok">' +
         '<button class="btn btn-utama" data-aksi="catat">' + Z.Ikon('plus', 18) + 'Catat Transaksi</button>' +
-        '<button class="btn btn-netral" data-aksi="ekspor-keu">' + Z.Ikon('unduh', 18) + 'Ekspor CSV</button></div></section>';
+        '<button class="btn btn-netral" data-aksi="ekspor-keu">' + Z.Ikon('unduh', 18) + 'Ekspor CSV</button>' +
+        '<div class="pilih-sel">' + global.Pilih.tombol('keuangan') + '</div></div></section>';
 
       /* Hero gelap */
       html += '<section class="kartu kartu-gelap">' +
@@ -180,6 +197,15 @@
       return html;
     },
     setelah: function (root) {
+      // Mode pilih untuk hapus massal. Baris yang lahir otomatis dari sebuah
+      // order ditolak server, jadi disaring di sini juga supaya pemilik tidak
+      // mencentang sesuatu yang pasti gagal.
+      global.Pilih.pasang(root, '[data-tx]', 'data-tx', {
+        hal: 'keuangan', atr: 'data-tx', nama: 'transaksi', aksi: 'keuangan.hapusBanyak',
+        peringatan: 'Transaksi yang dihapus hilang permanen dan laba bersih ikut berubah. ' +
+                    'Baris yang muncul otomatis dari sebuah order tidak bisa dihapus di sini — ' +
+                    'hapus ordernya kalau memang ingin dibuang.'
+      });
       Z.$$('[data-periode]', root).forEach(function (b) {
         b.addEventListener('click', function () {
           Z.Simpan.taruh('keuPeriode', b.getAttribute('data-periode'));
@@ -353,8 +379,10 @@
         '<button class="ikon-btn" data-nav="lainnya">' + Z.Ikon('panahKiri', 20) + '</button>' +
         '<div><h1 class="t-judul">Servis & Pajak</h1>' +
         '<div class="t-sm t-var">Riwayat servis, jadwal berikutnya, jatuh tempo STNK</div></div></div></div>' +
-        '<button class="btn btn-utama btn-blok" style="margin-top:12px" data-aksi="servis-baru">' +
-        Z.Ikon('plus', 18) + 'Catat Servis Baru</button></section>';
+        '<div class="aksi-blok">' +
+        '<button class="btn btn-utama" data-aksi="servis-baru">' + Z.Ikon('plus', 18) + 'Catat Servis Baru</button>' +
+        '<button class="btn btn-netral" data-aksi="ekspor-servis">' + Z.Ikon('unduh', 18) + 'Ekspor CSV</button>' +
+        '<div class="pilih-sel">' + global.Pilih.tombol('servis') + '</div></div></section>';
 
       html += '<section class="grid3">' +
         P.pilCounter('Pajak dekat', pajakDekat.length, pajakDekat.length ? 'var(--danger)' : '') +
@@ -393,7 +421,8 @@
         '<div style="display:flex;flex-direction:column;gap:9px">' +
         (riwayat.length ? riwayat.map(function (s) {
           const u = unit(s.unit);
-          return '<article class="kartu kartu-rapat" style="display:flex;align-items:center;gap:11px">' +
+          return '<article class="kartu kartu-rapat" data-sv="' + esc(s.id) + '" ' +
+            'style="display:flex;align-items:center;gap:11px">' +
             '<span class="kpi-ikon">' + Z.Ikon('perkakas', 17) + '</span>' +
             '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12.5px">' + esc(s.jenis) + '</div>' +
             '<div class="t-sm t-var">' + esc(u.nama || s.unit) + ' • ' + esc(s.bengkel || '-') + '</div>' +
@@ -404,8 +433,26 @@
       return html;
     },
     setelah: function (root) {
+      // Hapus massal riwayat servis. Server ikut membuang baris pengeluaran
+      // yang dulu dibuat otomatis oleh servis itu, supaya buku kas tidak
+      // menyisakan biaya tanpa asal-usul.
+      global.Pilih.pasang(root, '[data-sv]', 'data-sv', {
+        hal: 'servis', atr: 'data-sv', nama: 'riwayat servis', aksi: 'servis.hapusBanyak',
+        peringatan: 'Riwayat servis yang dihapus hilang permanen, berikut baris pengeluaran ' +
+                    'yang dulu tercatat otomatis dari servis tersebut.'
+      });
       const b = Z.$('[data-aksi="servis-baru"]', root);
       if (b) b.addEventListener('click', function () { Hal.servis.form(null); });
+      const ek = Z.$('[data-aksi="ekspor-servis"]', root);
+      if (ek) ek.addEventListener('click', function () {
+        const rows = [['ID', 'Tanggal', 'Unit', 'Jenis', 'Bengkel', 'Odometer', 'Biaya', 'Servis Berikutnya']];
+        (D().servis || []).forEach(function (x) {
+          const u = unit(x.unit);
+          rows.push([x.id, x.tanggal, (u.nama || x.unit) + ' ' + (u.plat || ''), x.jenis,
+                     x.bengkel, x.odo, x.biaya, x.next]);
+        });
+        P.unduhCsv(rows, 'servis-zan-rental-' + Z.hariIni() + '.csv');
+      });
     },
     form: function (idUnit) {
       const units = (D().units || []).filter(function (u) { return u.aktif; });
@@ -428,14 +475,25 @@
           '<div class="field"><label>Bengkel</label><input class="inp" data-s="bengkel" placeholder="Bengkel Mitra Jaya"></div></div>' +
         '<div class="field"><label>Servis berikutnya setelah (km)</label>' +
           '<input class="inp" type="number" data-s="servisNextKm" value="2000" step="500"></div>' +
-        '<div class="kotak" style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
-          '<div><div style="font-weight:600;font-size:12.5px">Motor masuk bengkel</div>' +
-          '<div class="t-sm t-var">Status unit menjadi “Servis” dan tidak bisa dipesan</div></div>' +
-          '<label class="switch"><input type="checkbox" data-s="masukBengkel"><i></i></label></div>' +
-        '<div class="kotak" style="margin-top:9px;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
-          '<div><div style="font-weight:600;font-size:12.5px">Servis sudah selesai</div>' +
-          '<div class="t-sm t-var">Unit kembali berstatus “Tersedia”</div></div>' +
-          '<label class="switch"><input type="checkbox" data-s="selesai" checked><i></i></label></div>' +
+        '<div class="kotak">' +
+          /* Dulu ini dua saklar terpisah yang bisa menyala bersamaan dan saling
+             bertentangan — server lalu diam-diam memilih salah satu. Sekarang
+             satu pilihan tegas, jadi akibatnya ke status unit bisa ditebak. */
+          '<div style="font-weight:600;font-size:12.5px;margin-bottom:3px">Akibat ke status unit</div>' +
+          '<div class="t-sm t-var" style="margin-bottom:9px">Pilih satu — inilah yang menentukan ' +
+          'motor ini bisa dipesan atau tidak.</div>' +
+          '<div class="pilih-grup" id="svDampak">' +
+            [['bengkel', 'Motor masuk bengkel', 'Status jadi “Servis”, tidak bisa dipesan'],
+             ['selesai', 'Servis sudah selesai', 'Status kembali “Tersedia”'],
+             ['catatan', 'Hanya catatan biaya', 'Status unit tidak diubah — untuk servis lampau']]
+            .map(function (x, i) {
+              return '<label class="pilih-opsi' + (x[0] === 'selesai' ? ' on' : '') + '">' +
+                '<input type="radio" name="svDampak" value="' + x[0] + '"' +
+                  (x[0] === 'selesai' ? ' checked' : '') + '>' +
+                '<div><div class="pilih-opsi-judul">' + x[1] + '</div>' +
+                '<div class="t-sm t-var">' + x[2] + '</div></div></label>';
+            }).join('') +
+          '</div>' +
         '<div class="field" style="margin-top:13px;margin-bottom:0"><label>Catatan</label>' +
           '<textarea class="ta" data-s="catatan" maxlength="250" placeholder="Sparepart yang diganti, keluhan, dll."></textarea></div>';
 
@@ -445,11 +503,23 @@
               '<button class="btn btn-utama" data-simpan>' + Z.Ikon('check', 17) + 'Simpan</button>'
       });
       Z.$('[data-batal]', wrap).addEventListener('click', function () { Z.Sheet.tutup(); });
+      Z.$$('input[name="svDampak"]', wrap).forEach(function (r) {
+        r.addEventListener('change', function () {
+          Z.$$('#svDampak .pilih-opsi', wrap).forEach(function (l) {
+            l.classList.toggle('on', l.contains(r) ? r.checked : false);
+          });
+          Z.$$('#svDampak .pilih-opsi', wrap).forEach(function (l) {
+            const i = l.querySelector('input'); l.classList.toggle('on', !!(i && i.checked));
+          });
+        });
+      });
       Z.$('[data-simpan]', wrap).addEventListener('click', async function () {
         const d = {};
         Z.$$('[data-s]', wrap).forEach(function (i) {
           d[i.getAttribute('data-s')] = i.type === 'checkbox' ? i.checked : i.value;
         });
+        const pil = Z.$('input[name="svDampak"]:checked', wrap);
+        d.dampak = pil ? pil.value : 'catatan';
         const r = await global.App.kirim('servis.simpan', d);
         if (r.success) { Z.Sheet.tutup(); await global.App.muatUlang(true); }
       });
@@ -459,12 +529,114 @@
   /* ================================================================
    * LAPORAN
    * ================================================================ */
+  /* --- Periode laporan: harian / bulanan / tahunan --- */
+
+  /** Acuan tersimpan untuk periode ini; jatuh ke hari/bulan/tahun berjalan. */
+  function acuanLaporan(periode) {
+    const h = Z.hariIni();
+    if (periode === 'hari')  return Z.Simpan.ambil('lapHari', h);
+    if (periode === 'tahun') return Z.Simpan.ambil('lapTahun', h.slice(0, 4));
+    return Z.Simpan.ambil('lapBulan', h.slice(0, 7));
+  }
+
+  /** Rentang tanggal + label, dihitung sama persis dengan sisi server. */
+  function rentangLap(periode, acuan) {
+    if (periode === 'hari') {
+      return { dari: acuan, sampai: acuan, label: 'Tanggal', judul: Z.tglPanjang(acuan) };
+    }
+    if (periode === 'tahun') {
+      return { dari: acuan + '-01-01', sampai: acuan + '-12-31', label: 'Tahun', judul: 'Tahun ' + acuan };
+    }
+    const p = acuan.split('-');
+    const akhir = new Date(Number(p[0]), Number(p[1]), 0).getDate();
+    return { dari: acuan + '-01', sampai: acuan + '-' + ('0' + akhir).slice(-2),
+             label: 'Bulan', judul: Z.bulanId(acuan) };
+  }
+
+  /** Kontrol pemilih acuan yang bentuknya mengikuti jenis laporan. */
+  function pilihAcuan(periode, acuan) {
+    if (periode === 'hari') {
+      return '<input class="inp" type="date" id="lapAcuan" value="' + esc(acuan) +
+             '" max="' + Z.hariIni() + '">';
+    }
+    if (periode === 'tahun') {
+      const kini = Number(Z.hariIni().slice(0, 4));
+      let o = '';
+      for (let y = kini; y >= kini - 5; y--) {
+        o += '<option value="' + y + '"' + (String(y) === String(acuan) ? ' selected' : '') + '>' + y + '</option>';
+      }
+      return '<select class="sel" id="lapAcuan">' + o + '</select>';
+    }
+    let o = '';
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
+      const b = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+      o += '<option value="' + b + '"' + (b === acuan ? ' selected' : '') + '>' + Z.bulanId(b) + '</option>';
+    }
+    return '<select class="sel" id="lapAcuan">' + o + '</select>';
+  }
+
+  /** Simpan acuan sesuai periodenya. */
+  function simpanAcuan(periode, nilai) {
+    if (periode === 'hari')  return Z.Simpan.taruh('lapHari', nilai);
+    if (periode === 'tahun') return Z.Simpan.taruh('lapTahun', nilai);
+    Z.Simpan.taruh('lapBulan', nilai);
+  }
+
+  /**
+   * Mutasi arus kas: tiap pemasukan & pengeluaran dengan saldo berjalan.
+   * Inilah yang menjawab "uang ini keluar untuk apa saja, masuk dari mana saja".
+   */
+  function tabelMutasi(keu) {
+    if (!keu.length) {
+      return '<div class="kartu">' + U.kosong('dompet', 'Belum ada transaksi',
+        'Tidak ada pemasukan atau pengeluaran pada periode ini.') + '</div>';
+    }
+    let saldo = 0;
+    const baris = keu.map(function (k) {
+      const masuk = k.jenis === 'Masuk';
+      saldo += masuk ? k.nominal : -k.nominal;
+      const u = k.unit ? unit(k.unit) : null;
+      return '<tr>' +
+        '<td class="mut-tgl">' + esc(Z.tglPendek(k.tanggal)) + '</td>' +
+        '<td><div class="mut-ket">' + esc(k.ket || k.kategori) + '</div>' +
+          '<div class="mut-sub">' + esc(k.kategori) +
+          (u && u.nama ? ' • ' + esc(u.nama) : '') + '</div></td>' +
+        '<td class="mut-n ' + (masuk ? 'mut-masuk' : '') + '">' + (masuk ? Z.rp(k.nominal) : '') + '</td>' +
+        '<td class="mut-n ' + (!masuk ? 'mut-keluar' : '') + '">' + (!masuk ? Z.rp(k.nominal) : '') + '</td>' +
+        '<td class="mut-n mut-saldo">' + Z.rp(saldo) + '</td>' +
+      '</tr>';
+    }).join('');
+
+    const tMasuk = keu.filter(function (k) { return k.jenis === 'Masuk'; })
+      .reduce(function (a, k) { return a + k.nominal; }, 0);
+    const tKeluar = keu.filter(function (k) { return k.jenis !== 'Masuk'; })
+      .reduce(function (a, k) { return a + k.nominal; }, 0);
+
+    return '<div class="mut-bungkus"><table class="mut-tabel">' +
+      '<thead><tr><th>Tgl</th><th>Keterangan</th><th class="mut-n">Masuk</th>' +
+      '<th class="mut-n">Keluar</th><th class="mut-n">Saldo</th></tr></thead>' +
+      '<tbody>' + baris + '</tbody>' +
+      '<tfoot><tr><td></td><td>TOTAL</td>' +
+        '<td class="mut-n mut-masuk">' + Z.rp(tMasuk) + '</td>' +
+        '<td class="mut-n mut-keluar">' + Z.rp(tKeluar) + '</td>' +
+        '<td class="mut-n mut-saldo">' + Z.rp(tMasuk - tKeluar) + '</td></tr></tfoot>' +
+      '</table></div>';
+  }
+
   Hal.laporan = {
     judul: 'Laporan', nav: 'lainnya',
     render: function () {
-      const bulan = Z.Simpan.ambil('lapBulan', Z.hariIni().slice(0, 7));
-      const keu = (D().keuangan || []).filter(function (k) { return k.tanggal.indexOf(bulan) === 0; });
-      const ord = (D().pesanan || []).filter(function (o) { return o.mulai.indexOf(bulan) === 0 && o.status !== 'Batal'; });
+      const periode = Z.Simpan.ambil('lapPeriode', 'bulan');
+      const acuan = acuanLaporan(periode);
+      const bulan = acuan;                     // dipakai nama berkas & unduhan
+      const R = rentangLap(periode, acuan);
+      const keu = (D().keuangan || []).filter(function (k) {
+        return k.tanggal >= R.dari && k.tanggal <= R.sampai;
+      }).sort(function (a, b) { return (a.tanggal + a.id).localeCompare(b.tanggal + b.id); });
+      const ord = (D().pesanan || []).filter(function (o) {
+        return o.mulai >= R.dari && o.mulai <= R.sampai && o.status !== 'Batal';
+      });
       const masuk = jml(keu.filter(function (k) { return k.jenis === 'Masuk'; }));
       const keluar = jml(keu.filter(function (k) { return k.jenis === 'Keluar'; }));
       const hariSewa = ord.reduce(function (a, o) { return a + o.durasi; }, 0);
@@ -488,13 +660,20 @@
         '<div style="display:flex;align-items:center;gap:9px">' +
         '<button class="ikon-btn" data-nav="lainnya">' + Z.Ikon('panahKiri', 20) + '</button>' +
         '<div><h1 class="t-judul">Laporan</h1><div class="t-sm t-var">Statistik & unduhan berkas</div></div></div></div>' +
-        '<div class="field" style="margin-top:12px"><label>Periode laporan</label>' +
-        '<select class="sel" id="pilihBulan">' + bulanPilihan.map(function (b) {
-          return '<option value="' + b + '"' + (b === bulan ? ' selected' : '') + '>' + Z.bulanId(b) + '</option>';
-        }).join('') + '</select></div>' +
+        '<div class="t-cap t-var" style="margin:12px 0 6px">JENIS LAPORAN</div>' +
+        '<div class="seg" id="lapPeriode">' +
+          [['hari', 'Harian'], ['bulan', 'Bulanan'], ['tahun', 'Tahunan']].map(function (x) {
+            return '<button class="' + (periode === x[0] ? 'on' : '') + '" data-lap-periode="' +
+              x[0] + '">' + x[1] + '</button>';
+          }).join('') + '</div>' +
+        '<div class="field" style="margin-top:10px"><label>' + esc(R.label) + '</label>' +
+          pilihAcuan(periode, acuan) + '</div>' +
+        '<div class="t-sm t-var" style="margin:-4px 0 10px">' + esc(R.judul) + '</div>' +
         '<div class="btn-grid">' +
-        '<button class="btn btn-utama" data-aksi="pdf">' + Z.Ikon('dokumen', 17) + 'Laporan PDF</button>' +
-        '<button class="btn btn-netral" data-aksi="xls">' + Z.Ikon('unduh', 17) + 'Data Excel/CSV</button></div></section>';
+        '<button class="btn btn-utama" data-aksi="pdf">' + Z.Ikon('dokumen', 17) + 'Unduh PDF</button>' +
+        '<button class="btn btn-netral" data-aksi="xls">' + Z.Ikon('unduh', 17) + 'Unduh Excel</button></div>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:8px" data-aksi="csv">' +
+        Z.Ikon('unduh', 15) + 'Mutasi kas sebagai CSV</button></section>';
 
       html += '<section class="grid2">' +
         U.kartuKpi({ label: 'Pemasukan', nilai: Z.rpSingkat(masuk), ikon: 'masuk', warna: 'ok' }) +
@@ -521,35 +700,69 @@
             '</td><td class="kanan">' + Z.rp(perKat[k]) + '</td></tr>';
         }).join('') : '<tr><td colspan="3" style="text-align:center;padding:18px" class="t-var">Belum ada transaksi pada periode ini.</td></tr>') +
         '</tbody></table></div></section>';
+
+      // Mutasi arus kas — rincian tiap pemasukan & pengeluaran pada periode ini
+      html += '<section class="kartu"><h3 class="t-judul">Mutasi Arus Kas</h3>' +
+        '<div class="t-sm t-var" style="margin:3px 0 11px">Tiap uang masuk dan keluar pada ' +
+        esc(R.judul) + ', berikut saldo berjalannya. Versi Excel memuat seluruh kolom.</div>' +
+        tabelMutasi(keu) + '</section>';
+
       return html;
     },
     setelah: function (root) {
-      const sel = Z.$('#pilihBulan', root);
-      if (sel) sel.addEventListener('change', function () {
-        Z.Simpan.taruh('lapBulan', sel.value); global.App.render();
+      const periode = Z.Simpan.ambil('lapPeriode', 'bulan');
+      const acuan = acuanLaporan(periode);
+      const R = rentangLap(periode, acuan);
+
+      Z.$$('[data-lap-periode]', root).forEach(function (b2) {
+        b2.addEventListener('click', function () {
+          Z.Simpan.taruh('lapPeriode', b2.getAttribute('data-lap-periode'));
+          global.App.render();
+        });
       });
-      const pdf = Z.$('[data-aksi="pdf"]', root);
-      if (pdf) pdf.addEventListener('click', async function () {
-        const bulan = Z.Simpan.ambil('lapBulan', Z.hariIni().slice(0, 7));
-        pdf.disabled = true;
-        pdf.innerHTML = Z.Ikon('sinkron', 17, 'putar') + 'Menyiapkan…';
-        const r = await global.App.kirim('dok.laporan', { bulan: bulan });
-        pdf.disabled = false;
-        pdf.innerHTML = Z.Ikon('dokumen', 17) + 'Laporan PDF';
+      const sel = Z.$('#lapAcuan', root);
+      if (sel) sel.addEventListener('change', function () {
+        simpanAcuan(periode, sel.value); global.App.render();
+      });
+
+      /** Minta server membuat berkas laporan, lalu buka tautannya. */
+      async function unduh(tombol, bentuk, labelIkon, label) {
+        const semula = tombol.innerHTML;
+        tombol.disabled = true;
+        tombol.innerHTML = Z.Ikon('sinkron', 17, 'putar') + 'Menyiapkan…';
+        const r = await global.App.kirim('dok.laporan',
+          { periode: periode, acuan: acuan, bentuk: bentuk });
+        tombol.disabled = false;
+        tombol.innerHTML = semula;
         if (r.success) {
-          window.open(r.data.url, '_blank', 'noopener');
+          window.open(r.data.unduh || r.data.url, '_blank', 'noopener');
           Z.toast('Laporan ' + r.data.judul + ' siap diunduh.');
         }
-      });
+      }
+
+      const pdf = Z.$('[data-aksi="pdf"]', root);
+      if (pdf) pdf.addEventListener('click', function () { unduh(pdf, 'pdf'); });
       const xls = Z.$('[data-aksi="xls"]', root);
-      if (xls) xls.addEventListener('click', function () {
-        const bulan = Z.Simpan.ambil('lapBulan', Z.hariIni().slice(0, 7));
-        const rows = [['Tanggal', 'Jenis', 'Kategori', 'Nominal', 'Metode', 'Order', 'Unit', 'Keterangan']];
-        (D().keuangan || []).filter(function (k) { return k.tanggal.indexOf(bulan) === 0; }).forEach(function (k) {
+      if (xls) xls.addEventListener('click', function () { unduh(xls, 'xlsx'); });
+
+      // CSV dibuat di perangkat — berguna saat ingin cepat tanpa menunggu server
+      const csv = Z.$('[data-aksi="csv"]', root);
+      if (csv) csv.addEventListener('click', function () {
+        const rows = [['Tanggal', 'ID', 'Jenis', 'Kategori', 'Keterangan', 'Unit', 'Order',
+                       'Metode', 'Masuk', 'Keluar', 'Saldo']];
+        let saldo = 0;
+        (D().keuangan || []).filter(function (k) {
+          return k.tanggal >= R.dari && k.tanggal <= R.sampai;
+        }).sort(function (a, b) {
+          return (a.tanggal + a.id).localeCompare(b.tanggal + b.id);
+        }).forEach(function (k) {
+          const masuk = k.jenis === 'Masuk';
+          saldo += masuk ? k.nominal : -k.nominal;
           const u = k.unit ? unit(k.unit) : null;
-          rows.push([k.tanggal, k.jenis, k.kategori, k.nominal, k.metode, k.order, u ? u.nama : '', k.ket]);
+          rows.push([k.tanggal, k.id, k.jenis, k.kategori, k.ket, u ? u.nama : '', k.order,
+                     k.metode, masuk ? k.nominal : 0, masuk ? 0 : k.nominal, saldo]);
         });
-        P.unduhCsv(rows, 'laporan-' + bulan + '.csv');
+        P.unduhCsv(rows, 'mutasi-kas-' + acuan + '.csv');
       });
     }
   };
@@ -962,6 +1175,14 @@
       html += '<section class="kartu"><h3 class="t-judul">Logo & Identitas Aplikasi</h3>' +
         '<div class="grid2" style="margin-top:12px;gap:10px">' +
           gambarKotak('MEREK_LOGO', 'Logo aplikasi', s.MEREK_LOGO, 'Tampil di bar atas, side-rail, dan layar masuk.') +
+          '<div class="spek-gambar">' +
+            '<div class="spek-judul">' + Z.Ikon('info', 14) + 'Syarat berkas logo</div>' +
+            '<ul class="spek-list">' +
+              '<li><b>PNG berlatar transparan</b>, bentuk <b>persegi</b> (contoh 512 × 512 px, minimal 320 × 320).</li>' +
+              '<li>Otomatis dikecilkan ke 320 px. JPG boleh, tapi latarnya jadi kotak putih.</li>' +
+              '<li>Setelah memilih berkas, tekan <b>Simpan Pengaturan</b> agar logo benar-benar terpasang.</li>' +
+            '</ul>' +
+          '</div>' +
           global.panduanUnggah([
             'Pakai <b>PNG berlatar transparan</b> supaya logo menyatu di tema terang maupun gelap. ' +
               'JPG selalu punya latar kotak putih.',
@@ -1034,6 +1255,23 @@
         '<div id="setBayar" class="lengkap-daftar">' + bayarBarisHtml(bayar) + '</div>' +
         '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" id="setBayarTambah">' +
           Z.Ikon('plus', 15) + 'Tambah metode pembayaran</button></section>';
+
+      /* ---------- Kelengkapan berkas penyewa ---------- */
+      html += '<section class="kartu"><h3 class="t-judul">' + esc(Z.berkasLabel()) + '</h3>' +
+        '<div class="t-sm t-var" style="margin-top:4px">Status berkas penyewa — dulu tertulis ' +
+        '<b>KYC</b>, istilah perbankan yang membingungkan. Ganti sebutan dan pilihannya sesuai ' +
+        'cara Anda sendiri mencatat.</div>' +
+        '<div class="field" style="margin-top:11px"><label>Sebutan di aplikasi</label>' +
+          '<input class="inp" id="setBerkasLabel" maxlength="28" value="' + esc(Z.berkasLabel()) + '" ' +
+          'placeholder="Kelengkapan Berkas"></div>' +
+        '<div class="t-cap t-var" style="margin:4px 0 7px">PILIHAN STATUS</div>' +
+        '<div id="setBerkas" style="display:flex;flex-direction:column;gap:7px">' +
+          berkasBarisHtml(Z.berkasOpsi()) +
+        '</div>' +
+        '<div class="bantu" style="margin-top:7px">Centang <b>Lengkap</b> pada status yang dianggap ' +
+        'berkasnya beres — itulah yang dihitung di kartu ringkasan dan saringan daftar pelanggan.</div>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" id="setBerkasTambah">' +
+          Z.Ikon('plus', 15) + 'Tambah pilihan status</button></section>';
 
       /* ---------- Foto serah terima ---------- */
       html += '<section class="kartu"><h3 class="t-judul">Foto Serah Terima</h3>' +
@@ -1260,6 +1498,49 @@
           });
       });
 
+      /* ---------- Pilihan status berkas penyewa ---------- */
+      let berkas = Z.berkasOpsi();
+      function gambarBerkas() {
+        const wadah = Z.$('#setBerkas', root);
+        if (!wadah) return;
+        wadah.innerHTML = berkasBarisHtml(berkas);
+        ikatBerkas();
+      }
+      function ikatBerkas() {
+        Z.$$('[data-bknama]', root).forEach(function (i) {
+          i.addEventListener('input', function () {
+            berkas[Z.num(i.getAttribute('data-bknama'))].n = i.value;
+          });
+        });
+        Z.$$('[data-bkok]', root).forEach(function (c) {
+          c.addEventListener('change', function () {
+            berkas[Z.num(c.getAttribute('data-bkok'))].ok = c.checked;
+          });
+        });
+        Z.$$('[data-bkhapus]', root).forEach(function (b2) {
+          b2.addEventListener('click', function () {
+            if (berkas.length <= 1) return Z.toast('Minimal satu pilihan status harus ada.', 'err');
+            berkas.splice(Z.num(b2.getAttribute('data-bkhapus')), 1);
+            gambarBerkas();
+          });
+        });
+      }
+      ikatBerkas();
+      const tbk = Z.$('#setBerkasTambah', root);
+      if (tbk) tbk.addEventListener('click', function () {
+        if (berkas.length >= 8) return Z.toast('Maksimal 8 pilihan status.', 'err');
+        Z.tanya({ judul: 'Tambah status berkas', label: 'Nama status',
+                  placeholder: 'Contoh: KTP + Kartu Mahasiswa', maks: 28 })
+          .then(function (nama) {
+            nama = String(nama || '').trim();
+            if (!nama) return;
+            if (berkas.some(function (o) { return o.n.toLowerCase() === nama.toLowerCase(); }))
+              return Z.toast('“' + nama + '” sudah ada.', 'err');
+            berkas.push({ n: nama, ok: false });
+            gambarBerkas();
+          });
+      });
+
       /* ---------- Daftar metode pembayaran ---------- */
       let bayar = [];
       try { bayar = JSON.parse((D().pengaturan || {}).METODE_BAYAR_OPSI || '[]') || []; } catch (e) { bayar = []; }
@@ -1382,6 +1663,16 @@
         nilai.METODE_BAYAR_OPSI = JSON.stringify(
           bayar.map(function (x) { return String(x || '').trim(); })
                .filter(function (x, i, arr) { return x && arr.indexOf(x) === i; }));
+        // Kelengkapan berkas: sebutan + daftar pilihan statusnya
+        const labelBerkas = (Z.$('#setBerkasLabel', root) || {}).value;
+        nilai.BERKAS_LABEL = String(labelBerkas || '').trim() || 'Kelengkapan Berkas';
+        const bkBersih = berkas
+          .map(function (x) { return { n: String(x.n || '').trim(), ok: !!x.ok }; })
+          .filter(function (x, i, arr) {
+            return x.n && arr.findIndex(function (y) { return y.n === x.n; }) === i;
+          });
+        if (bkBersih.length) nilai.BERKAS_OPSI = JSON.stringify(bkBersih);
+
         // Kotak foto: nama boleh diubah, kuncinya dipertahankan supaya foto
         // yang sudah tersimpan tetap cocok dengan kotaknya.
         const dipakai = [];
@@ -1437,12 +1728,206 @@
   /* ================================================================
    * LAINNYA (menu)
    * ================================================================ */
+  /* ================================================================
+   * KALENDER PENYEWA
+   * Satu bulan dalam satu layar: hari mana saja yang ramai, siapa yang
+   * sedang membawa motor, dan unit mana yang dipakai. Menjawab pertanyaan
+   * "bulan ini siapa saja yang sedang menyewa" tanpa membuka order satu per satu.
+   * ================================================================ */
+  Hal.kalender = {
+    judul: 'Kalender Penyewa', nav: 'lainnya',
+
+    /** Bulan yang sedang dilihat, format YYYY-MM. */
+    bulan: function () { return Z.Simpan.ambil('kalBulan', Z.hariIni().slice(0, 7)); },
+
+    /** Order yang masa sewanya bersinggungan dengan bulan ini. */
+    sewaBulan: function (bl) {
+      const awal = bl + '-01';
+      const akhir = bl + '-' + String(hariDalamBulan(bl)).padStart(2, '0');
+      return (D().pesanan || []).filter(function (o) {
+        if (o.status === 'Batal') return false;
+        const m = String(o.mulai || ''), k = String(o.kembali || m);
+        return m && m <= akhir && k >= awal;
+      }).sort(function (a, b) { return String(a.mulai).localeCompare(String(b.mulai)); });
+    },
+
+    render: function () {
+      const bl = this.bulan();
+      const hariIni = Z.hariIni();
+      const sewa = this.sewaBulan(bl);
+      const pilihTgl = Z.Simpan.ambil('kalTgl', '');
+
+      // Berapa sewa berjalan di tiap tanggal
+      const perHari = {};
+      sewa.forEach(function (o) {
+        const m = String(o.mulai), k = String(o.kembali || o.mulai);
+        for (let d = 1; d <= hariDalamBulan(bl); d++) {
+          const t = bl + '-' + String(d).padStart(2, '0');
+          if (t >= m && t <= k) (perHari[t] = perHari[t] || []).push(o);
+        }
+      });
+      const puncak = Object.keys(perHari).reduce(function (a, t) {
+        return Math.max(a, perHari[t].length); }, 0);
+
+      const penyewaUnik = {};
+      sewa.forEach(function (o) { if (o.pelanggan) penyewaUnik[o.pelanggan] = 1; });
+      const unitHari = Object.keys(perHari).reduce(function (a, t) { return a + perHari[t].length; }, 0);
+
+      let html = '';
+      html += '<section><div class="seksi-head">' +
+        '<div style="display:flex;align-items:center;gap:9px;min-width:0">' +
+        '<button class="ikon-btn" data-nav="lainnya" aria-label="Kembali">' + Z.Ikon('panahKiri', 20) + '</button>' +
+        '<div style="min-width:0"><h1 class="t-judul">Kalender Penyewa</h1>' +
+        '<div class="t-sm t-var">Siapa yang sedang menyewa, hari per hari</div></div></div></div>' +
+
+        '<div class="kal-nav">' +
+          '<button class="ikon-btn" data-kal="-1" aria-label="Bulan sebelumnya">' + Z.Ikon('panahKiri', 19) + '</button>' +
+          '<div class="kal-bulan">' + esc(namaBulanPanjang(bl)) + '</div>' +
+          '<button class="ikon-btn" data-kal="1" aria-label="Bulan berikutnya">' + Z.Ikon('panah', 19) + '</button>' +
+        '</div>' +
+        (bl === hariIni.slice(0, 7) ? '' :
+          '<button class="btn btn-netral btn-kecil btn-blok" style="margin-top:8px" data-kal="0">' +
+          'Kembali ke bulan ini</button>') +
+      '</section>';
+
+      html += '<section class="grid3">' +
+        P.pilCounter('Sewa bulan ini', sewa.length, '') +
+        P.pilCounter('Penyewa', Object.keys(penyewaUnik).length, '') +
+        P.pilCounter('Hari-unit terpakai', unitHari, '') + '</section>';
+
+      /* ---------- Kisi kalender ---------- */
+      const geser = awalKisi(bl);                     // 0 = Senin
+      const jml = hariDalamBulan(bl);
+      let sel = '';
+      for (let i = 0; i < geser; i++) sel += '<div class="kal-sel kosong"></div>';
+      for (let d = 1; d <= jml; d++) {
+        const t = bl + '-' + String(d).padStart(2, '0');
+        const n = (perHari[t] || []).length;
+        const kelas = ['kal-sel'];
+        if (t === hariIni) kelas.push('ini');
+        if (t === pilihTgl) kelas.push('pilih');
+        if (n) kelas.push('ada');
+        // Empat tingkat kepadatan supaya pola ramai/sepi terbaca sekilas
+        if (n && puncak) kelas.push('p' + Math.min(4, Math.ceil(n / puncak * 4)));
+        sel += '<button class="' + kelas.join(' ') + '" data-kal-tgl="' + t + '" ' +
+          'aria-label="' + esc(Z.tglId(t)) + ', ' + n + ' sewa">' +
+          '<span class="kal-angka">' + d + '</span>' +
+          (n ? '<span class="kal-jml">' + n + '</span>' : '') + '</button>';
+      }
+      // Lengkapi baris terakhir supaya kisi selalu kelipatan 7 dan tidak ada
+      // baris pendek yang membuat kotak-kotaknya melar.
+      const ekor = (7 - ((geser + jml) % 7)) % 7;
+      for (let i = 0; i < ekor; i++) sel += '<div class="kal-sel kosong"></div>';
+
+      html += '<section class="kartu">' +
+        '<div class="kal-hari">' + ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
+          .map(function (h) { return '<span>' + h + '</span>'; }).join('') + '</div>' +
+        '<div class="kal-kisi">' + sel + '</div>' +
+        '<div class="kal-ket"><span class="kal-ket-l">Sepi</span>' +
+          [1, 2, 3, 4].map(function (i) { return '<i class="kal-kotak p' + i + '"></i>'; }).join('') +
+          '<span class="kal-ket-l">Ramai</span></div>' +
+      '</section>';
+
+      /* ---------- Daftar penyewa ---------- */
+      const tampil = pilihTgl && perHari[pilihTgl] ? perHari[pilihTgl] : sewa;
+      const judul = pilihTgl
+        ? 'Sedang menyewa pada ' + Z.tglId(pilihTgl)
+        : 'Semua sewa di ' + namaBulanPanjang(bl);
+
+      html += '<section>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:9px">' +
+          '<h3 class="t-seksi" style="margin:0">' + esc(judul) + '</h3>' +
+          (pilihTgl ? '<button class="btn btn-kecil btn-netral" data-kal-reset>' +
+            Z.Ikon('x', 14) + 'Semua</button>' : '') +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:9px">' +
+        (tampil.length ? tampil.map(barisKalender).join('')
+          : '<div class="kartu">' + U.kosong('kalender', 'Tidak ada sewa',
+              pilihTgl ? 'Tidak ada motor yang sedang disewa pada tanggal ini.'
+                       : 'Belum ada sewa yang jatuh di bulan ini.') + '</div>') +
+        '</div></section>';
+
+      return html;
+    },
+
+    setelah: function (root) {
+      const diri = this;
+      Z.$$('[data-kal]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          const arah = Z.num(b.getAttribute('data-kal'));
+          Z.Simpan.taruh('kalBulan', arah === 0 ? Z.hariIni().slice(0, 7) : geserBulan(diri.bulan(), arah));
+          Z.Simpan.taruh('kalTgl', '');
+          global.App.render();
+        });
+      });
+      Z.$$('[data-kal-tgl]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          const t = b.getAttribute('data-kal-tgl');
+          Z.Simpan.taruh('kalTgl', Z.Simpan.ambil('kalTgl', '') === t ? '' : t);
+          global.App.render();
+        });
+      });
+      const r = Z.$('[data-kal-reset]', root);
+      if (r) r.addEventListener('click', function () {
+        Z.Simpan.taruh('kalTgl', ''); global.App.render();
+      });
+      Z.$$('[data-order]', root).forEach(function (el) {
+        el.addEventListener('click', function () { Hal.detailOrder(el.getAttribute('data-order')); });
+      });
+    }
+  };
+
+  /** Satu penyewa pada daftar kalender: orangnya, motornya, dan masa sewanya. */
+  function barisKalender(o) {
+    const c = pel(o.pelanggan), u = unit(o.unit);
+    const st = H.statusEfektif(o);
+    const warna = st === 'Terlambat' ? 'danger' : (st === 'Berjalan' ? 'ok' : 'netral');
+    return '<article class="kartu kartu-rapat kartu-klik" data-order="' + esc(o.id) + '">' +
+      '<div style="display:flex;align-items:center;gap:11px">' +
+        U.avatar(c.nama || '?') +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+            esc(c.nama || 'Tanpa nama') + '</div>' +
+          '<div class="t-sm t-var" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+            Z.Ikon('motor', 12) + ' ' + esc(u.nama || o.unit) +
+            (u.plat ? ' • ' + esc(u.plat) : '') + '</div>' +
+        '</div>' +
+        U.badge(st, warna) +
+      '</div>' +
+      '<div class="kal-rentang">' +
+        '<span>' + Z.Ikon('kalender', 12) + ' ' + esc(Z.tglPendek(o.mulai)) +
+          ' → ' + esc(Z.tglPendek(o.kembali || o.mulai)) + '</span>' +
+        (c.wa ? '<span>' + Z.Ikon('wa', 12) + ' ' + esc(c.wa) + '</span>' : '') +
+        '<span style="font-weight:700;color:var(--teks)">' + Z.rp(o.total) + '</span>' +
+      '</div>' +
+    '</article>';
+  }
+
+  /* --- Bantuan tanggal untuk kalender --- */
+  function hariDalamBulan(bl) {
+    const a = bl.split('-');
+    return new Date(Number(a[0]), Number(a[1]), 0).getDate();
+  }
+  /** Berapa sel kosong sebelum tanggal 1; kisi dimulai hari Senin. */
+  function awalKisi(bl) {
+    const a = bl.split('-');
+    const h = new Date(Number(a[0]), Number(a[1]) - 1, 1).getDay();   // 0=Minggu
+    return (h + 6) % 7;
+  }
+  function geserBulan(bl, n) {
+    const a = bl.split('-');
+    const d = new Date(Number(a[0]), Number(a[1]) - 1 + n, 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function namaBulanPanjang(bl) { return Z.bulanId(bl); }
+
   Hal.lainnya = {
     judul: 'Lainnya', nav: 'lainnya',
     render: function () {
       const menu = [
         ['keuangan', 'dompet', 'Keuangan & Arus Kas', 'Pemasukan, pengeluaran, laba bersih'],
         ['servis', 'perkakas', 'Servis & Pajak', 'Riwayat servis dan jatuh tempo STNK'],
+        ['kalender', 'kalender', 'Kalender Penyewa', 'Lihat siapa yang menyewa di bulan ini'],
         ['laporan', 'grafik', 'Laporan', 'Statistik bulanan, PDF & Excel'],
         ['notifikasi', 'wa', 'WhatsApp & Notifikasi', 'Template pesan, blast, antrean'],
         ['struk', 'cetak', 'Model Struk & Printer', 'Atur tata letak struk thermal 58/80 mm'],
@@ -1804,6 +2289,14 @@
                 'Foto Kondisi Saat Kembali</button>' : '') : '') +
         (s === 'Booking'
           ? '<button class="btn btn-utama btn-blok" data-k="mulai">' + Z.Ikon('kunci', 17) + 'Serah Terima & Mulai Sewa</button>' : '') +
+        /* Sewa yang sudah jalan tetap butuh jalan masuk ke form foto serah
+           terima: order yang dimulai sebelum fitur ini ada, atau yang fotonya
+           sempat dilewati, kalau tidak akan terkunci tanpa bukti selamanya.
+           Server memang membolehkan melengkapi tanpa mengubah status. */
+        (s === 'Berjalan' || s === 'Terlambat' || s === 'Selesai'
+          ? '<button class="btn btn-netral btn-blok" data-k="mulai">' + Z.Ikon('kamera', 16) +
+            (adaFotoSerah(o) ? 'Lihat / Ubah Foto Serah Terima' : 'Unggah Foto Serah Terima ke Penyewa') +
+            '</button>' : '') +
         (s === 'Selesai' && fotoKembaliAktif()
           ? '<button class="btn btn-netral btn-blok" data-k="fotoKembali">' + Z.Ikon('kamera', 16) +
             'Lengkapi Foto Pengembalian</button>' : '') +
@@ -1894,6 +2387,11 @@
       '<img src="' + esc(url) + '" alt="Foto ' + esc(label) + '" loading="lazy" ' +
       'onerror="this.closest(\'a\').classList.add(\'gagal\')">' +
       '<span>' + esc(label) + '</span></a>';
+  }
+
+  /** Apakah order ini sudah punya minimal satu foto serah terima? */
+  function adaFotoSerah(o) {
+    return !!(o && o.serah && o.serah.foto && Object.keys(o.serah.foto).length);
   }
 
   /** Galeri bukti foto yang sudah tersimpan di satu order (serah terima + pengembalian). */
@@ -2372,7 +2870,13 @@
         '<span style="color:var(--ungu)">' + Z.Ikon(serah ? 'kunci' : 'check', 18) + '</span>' +
         '<div class="t-sm">' + (serah
           ? 'Bukti <b>penyerahan unit dari Anda ke penyewa</b>. Difoto saat motor diserahkan, ' +
-            'bukan saat dikembalikan. Setelah disimpan, order berubah menjadi <b>Berjalan</b>.'
+            'bukan saat dikembalikan.' +
+            // Order yang sudah jalan cuma melengkapi bukti; statusnya tidak
+            // boleh dijanjikan berubah, karena memang tidak berubah.
+            (o.status === 'Booking'
+              ? ' Setelah disimpan, order berubah menjadi <b>Berjalan</b>.'
+              : ' Sewa ini sudah berjalan, jadi menyimpan di sini hanya melengkapi buktinya — ' +
+                'status order tidak berubah.')
           : 'Foto kondisi unit <b>saat diterima kembali</b>, untuk dibandingkan dengan foto serah terima.') +
         '</div></div>' +
 

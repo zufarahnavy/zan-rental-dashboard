@@ -239,6 +239,13 @@
       if (simpan && simpan.data) {
         App.data = simpan.data;
         App.siap = true;
+        // Logo, warna, dan font tersimpan di App.data.pengaturan, sedangkan
+        // kerangka sudah digambar sebelum data ini ada — saat itu Merek belum
+        // tahu apa pun dan memakai bawaan. Tanpa baris ini, logo hasil unggahan
+        // pemilik baru muncul setelah cache basi (>45 detik) dan halaman
+        // dimuat ulang. App.render() tidak cukup: dudukan logo ada di
+        // kerangka, bukan di isi halaman.
+        Merek.terapkan();
         App.render();
       }
       if (umur > (global.ZAN_CONFIG.SEGAR_DETIK || 45) || !simpan) {
@@ -559,10 +566,10 @@
         '<div class="pin-pad">' +
           [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) {
             return '<button class="pin-tombol" data-pin="' + n + '">' + n + '</button>'; }).join('') +
-          '<button class="pin-tombol" data-pin="hapus" aria-label="Hapus">' + Z.Ikon('panahKiri', 20) + '</button>' +
+          '<button class="pin-tombol" data-pin="hapus" aria-label="Hapus">' + Z.Ikon('panahKiri', 23, 'ikon-pin') + '</button>' +
           '<button class="pin-tombol" data-pin="0">0</button>' +
           '<button class="pin-tombol" data-pin="ok" style="background:var(--kuning);color:var(--aksen-kontras)">' +
-            Z.Ikon('panah', 20) + '</button>' +
+            Z.Ikon('panah', 23, 'ikon-pin') + '</button>' +
         '</div>' +
         '<div class="t-sm t-var" style="margin-top:18px;line-height:1.6">' +
           'PIN awal ada di <b>Execution Log</b> Apps Script setelah menjalankan setupAppEnvironment().<br>' +

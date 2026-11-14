@@ -615,8 +615,44 @@
     return ['Tunai', 'Transfer BCA', 'QRIS'];
   }
 
+  /* ---------------- Kelengkapan berkas penyewa ----------------
+     Dulu dinamai "KYC" — istilah perbankan yang tidak dipakai orang rental.
+     Sebutan dan daftar pilihannya kini diatur pemilik di Pengaturan; kolom
+     di Sheets tetap bernama KYC supaya data lama tidak perlu dimigrasi. */
+  function berkasLabel() {
+    const v = (global.App && global.App.set) ? String(global.App.set('BERKAS_LABEL', '') || '').trim() : '';
+    return v || 'Kelengkapan Berkas';
+  }
+
+  const BERKAS_BAWAAN = [
+    { n: 'Belum ada berkas', ok: false },
+    { n: 'KTP saja', ok: false },
+    { n: 'KTP + SIM lengkap', ok: true }
+  ];
+
+  function berkasOpsi() {
+    try {
+      const a = JSON.parse((global.App && global.App.set ? global.App.set('BERKAS_OPSI', '[]') : '[]') || '[]');
+      const bersih = (a || []).map(function (x) {
+        return { n: String((x && x.n) || '').trim(), ok: !!(x && x.ok) };
+      }).filter(function (x) { return x.n; });
+      if (bersih.length) return bersih.slice(0, 8);
+    } catch (e) {}
+    return BERKAS_BAWAAN.slice();
+  }
+
+  /** Apakah nilai berkas ini terhitung lengkap? Toleran pada data lama ("Lengkap"). */
+  function berkasLengkap(nilai) {
+    const v = String(nilai || '').trim();
+    if (!v) return false;
+    const cocok = berkasOpsi().filter(function (x) { return x.n === v; })[0];
+    if (cocok) return cocok.ok;
+    return /lengkap/i.test(v);          // data sebelum pilihan bisa diatur
+  }
+
   global.ZAN = {
     $: $, $$: $$, esc: esc, num: num, rp: rp, rpSingkat: rpSingkat, ribuan: ribuan,
+    berkasLabel: berkasLabel, berkasOpsi: berkasOpsi, berkasLengkap: berkasLengkap,
     hariIni: hariIni, jamIni: jamIni, tglId: tglId, tglPendek: tglPendek, tglPanjang: tglPanjang,
     bulanId: bulanId, selisihHari: selisihHari, tambahHari: tambahHari, relatif: relatif, jamDari: jamDari,
     hp08: hp08, hp62: hp62, hpCantik: hpCantik, inisial: inisial, terbilang: terbilang, parseTgl: parseTgl,
