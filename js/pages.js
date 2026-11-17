@@ -64,6 +64,126 @@
       '</div></div>';
   }
 
+  /** Buka satu gambar identitas ukuran penuh. */
+  function lihatIdentitas(url, label, kembali) {
+    /* Satu lembar hanya bisa tampil satu per satu, jadi lembar pemanggil pasti
+       tertutup. Bila pemanggil memberi fungsi `kembali`, tombolnya disediakan
+       supaya pemilik tidak kehilangan tempatnya setelah melihat gambar. */
+    const w = Z.Sheet.buka({
+      judul: label || 'Identitas', ikon: 'kartu',
+      isi: '<div class="foto-penuh"><img src="' + esc(url) + '" alt="' + esc(label || '') + '"></div>' +
+        '<a class="btn btn-netral btn-blok" style="margin-top:11px" href="' + esc(url) +
+        '" target="_blank" rel="noopener">' + Z.Ikon('unduh', 16) + 'Buka ukuran asli</a>',
+      aksi: kembali ? '<button class="btn btn-utama btn-blok" data-idn-kembali>' +
+        Z.Ikon('panahKiri', 16) + 'Kembali</button>' : ''
+    });
+    if (kembali) Z.$('[data-idn-kembali]', w).addEventListener('click', function () { kembali(); });
+  }
+
+  /** Pasang pembuka pratinjau pada semua gambar identitas di dalam `root`. */
+  function ikatLihatIdn(root, kembali) {
+    Z.$$('[data-idn-lihat]', root).forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        lihatIdentitas(el.getAttribute('data-idn-lihat'), el.getAttribute('data-idn-label'), kembali);
+      });
+    });
+  }
+
+  /** Pratinjau kecil satu identitas pada ringkasan penyewa. */
+  function miniIdn(label, url) {
+    return '<div class="idn-mini' + (url ? '' : ' nol') + '"' +
+      (url ? ' data-idn-lihat="' + esc(url) + '" data-idn-label="' + esc(label) + '"' : '') + '>' +
+      (url
+        ? '<img src="' + esc(url) + '" alt="' + esc(label) + '" loading="lazy" ' +
+          'onerror="this.closest(\'.idn-mini\').classList.add(\'gagal\')">'
+        : Z.Ikon('kartu', 17)) +
+      '<span>' + esc(label) + '</span></div>';
+  }
+
+  /** Dua kotak identitas berdampingan. */
+  function idnHtml(n) {
+    return kotakIdentitas('ktp', 'KTP', n.ktp, true) +
+           kotakIdentitas('pendukung', 'Identitas pendukung', n.pendukung, false);
+  }
+
+  /** Pilihan jenis identitas pendukung, diatur pemilik di Pengaturan. */
+  function pendukungOpsi() {
+    try {
+      const a = JSON.parse(global.App.set('PENDUKUNG_OPSI', '[]') || '[]');
+      if (Array.isArray(a) && a.length) return a.map(String).slice(0, 15);
+    } catch (e) {}
+    return ['Paspor', 'KTM', 'Kartu Pelajar', 'Kartu Kerja', 'NPWP', 'BPJS', 'KITAS', 'SIM A', 'SIM B'];
+  }
+
+  /**
+   * Satu kotak unggah identitas: pratinjau, pilih dari galeri, atau potret
+   * langsung. `capture` dipisah ke tombol tersendiri — bila ditaruh pada satu
+   * input, sebagian ponsel langsung membuka kamera dan menghilangkan pilihan
+   * mengambil dari galeri.
+   */
+  function kotakIdentitas(kunci, judul, nilai, wajib) {
+    return '<div class="idn-kotak' + (wajib ? ' wajib' : '') + '" data-idn="' + kunci + '">' +
+      '<div class="idn-kop">' +
+        '<span class="idn-judul">' + esc(judul) + (wajib ? ' <b class="idn-w">wajib</b>' : '') + '</span>' +
+        '<span class="idn-status">' + (nilai ? Z.Ikon('check', 14) + 'Ada' : 'Belum ada') + '</span>' +
+      '</div>' +
+      '<div class="idn-pratinjau" data-idn-pratinjau="' + kunci + '">' +
+        (nilai
+          ? '<img src="' + esc(nilai) + '" alt="' + esc(judul) + '" loading="lazy" ' +
+            'onerror="this.closest(\'.idn-pratinjau\').classList.add(\'gagal\')">' +
+            '<span class="idn-gagal">Gambar tidak dapat dimuat</span>'
+          : '<span class="idn-kosong">' + Z.Ikon('kartu', 22) + 'Belum ada gambar</span>') +
+      '</div>' +
+      '<div class="idn-aksi">' +
+        '<label class="btn btn-netral btn-kecil">' + Z.Ikon('gambar', 15) + 'Dari galeri' +
+          '<input type="file" accept="image/*" data-idn-file="' + kunci + '" hidden></label>' +
+        '<label class="btn btn-netral btn-kecil">' + Z.Ikon('kamera', 15) + 'Potret' +
+          '<input type="file" accept="image/*" capture="environment" data-idn-cam="' + kunci + '" hidden></label>' +
+        (nilai ? '<button type="button" class="ikon-btn ikon-btn-kecil" data-idn-hapus="' + kunci +
+                 '" aria-label="Hapus gambar">' + Z.Ikon('sampah', 15) + '</button>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  /**
+   * Pasang perilaku kotak identitas pada satu wadah.
+   * @param nilai objek {ktp, pendukung} yang ikut diperbarui di tempat
+   */
+  function ikatIdentitas(wrap, nilai, gambarUlang) {
+    ['ktp', 'pendukung'].forEach(function (k) {
+      ['file', 'cam'].forEach(function (mode) {
+        const inp = Z.$('[data-idn-' + mode + '="' + k + '"]', wrap);
+        if (!inp) return;
+        inp.addEventListener('change', async function () {
+          const file = inp.files[0];
+          if (!file) return;
+          const kotak = Z.$('[data-idn-pratinjau="' + k + '"]', wrap);
+          if (kotak) kotak.classList.add('memuat');
+          Z.toast('Mengunggah gambar…', 'info');
+          try {
+            const b64 = await kompresGambar(file, 1200);
+            const r = await global.App.kirim('upload.foto',
+              { base64: b64, mime: 'image/jpeg', jenis: 'pelanggan', nama: k });
+            if (r.success) {
+              nilai[k] = r.data.url;
+              Z.toast('Gambar tersimpan di Drive Anda.');
+              if (gambarUlang) gambarUlang();
+            }
+          } finally {
+            if (kotak) kotak.classList.remove('memuat');
+            inp.value = '';
+          }
+        });
+      });
+      const hps = Z.$('[data-idn-hapus="' + k + '"]', wrap);
+      if (hps) hps.addEventListener('click', function () {
+        nilai[k] = '';
+        if (gambarUlang) gambarUlang();
+      });
+    });
+  }
+
   function berkasOpsiPertama() {
     const o = Z.berkasOpsi();
     return (o[0] && o[0].n) || 'Belum ada berkas';
@@ -450,6 +570,23 @@
         out.push({ tipe: 'piutang', prioritas: 2, order: o });
       }
     });
+
+    /* Servis berkala (oli, gardan, CVT, …). Satu motor bisa punya enam item
+       jatuh tempo sekaligus; kalau semuanya masuk, panel ini tenggelam. Jadi
+       tiap motor hanya menyumbang item paling mendesak, dan maksimal 8 motor —
+       daftar lengkapnya ada di halaman Servis Berkala. */
+    if (typeof Hitung.berkalaPerlu === 'function') {
+      const sudah = {};
+      Hitung.berkalaPerlu().forEach(function (x) {
+        if (sudah[x.u.id]) return;
+        sudah[x.u.id] = 1;
+        if (Object.keys(sudah).length > 8) return;
+        out.push({
+          tipe: 'berkala', prioritas: x.st.tingkat === 'lewat' ? 1 : 3,
+          unitRef: x.u, st: x.st
+        });
+      });
+    }
     return out.sort(function (a, b) { return a.prioritas - b.prioritas; });
   };
 
@@ -764,11 +901,24 @@
         (lewat ? 'Lewat ' + Math.abs(p.sisa) + ' hari dari jatuh tempo' : 'Jatuh tempo ' + Z.tglId(u.pajak) + ' (' + p.sisa + ' hari lagi)') +
         '</div></div></article>';
     }
+    if (p.tipe === 'berkala') {
+      const un = p.unitRef, lw = p.st.tingkat === 'lewat';
+      return '<article class="kartu ord-kartu kartu-klik" data-berkala-unit="' + esc(un.id) + '">' +
+        '<div class="ord-pita" style="background:' + (lw ? 'var(--danger-terang)' : 'var(--warn-terang)') + '"></div>' +
+        '<div class="ord-head">' + U.badge(lw ? 'GANTI OLI / SERVIS' : 'SERVIS MENDEKAT', lw ? 'danger' : 'warn', 'tetes') +
+        '<span class="plat">' + esc(un.plat) + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px">' +
+        '<div style="min-width:0"><div style="font-weight:700;font-size:14px">' + esc(p.st.item.n) + '</div>' +
+        '<div class="t-sm" style="color:' + (lw ? 'var(--danger-terang)' : 'var(--warn-terang)') + '">' +
+        esc(p.st.pesan) + (un.nama ? ' · ' + esc(un.nama) : '') + '</div></div>' +
+        '<button class="btn btn-kecil btn-netral" data-berkala-unit="' + esc(un.id) + '">Lihat</button>' +
+        '</div></article>';
+    }
     const u = p.unitRef;
     const lewat = p.sisa < 0;
     return '<article class="kartu ord-kartu kartu-klik" data-unit="' + esc(u.id) + '">' +
       '<div class="ord-pita" style="background:' + (lewat ? 'var(--danger-terang)' : 'var(--info-terang)') + '"></div>' +
-      '<div class="ord-head">' + U.badge('SERVIS BERKALA', lewat ? 'danger' : 'info', 'perkakas') +
+      '<div class="ord-head">' + U.badge('SERVIS KM', lewat ? 'danger' : 'info', 'perkakas') +
       '<span class="plat">' + esc(u.plat) + '</span></div>' +
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px">' +
       '<div><div style="font-weight:700;font-size:14px">' + esc(u.nama) + '</div>' +
@@ -870,6 +1020,30 @@
     const s = statusEfektif(o);
     return { 'Terlambat': 0, 'Berjalan': 1, 'Booking': 2, 'Selesai': 3, 'Batal': 4 }[s] !== undefined
       ? { 'Terlambat': 0, 'Berjalan': 1, 'Booking': 2, 'Selesai': 3, 'Batal': 4 }[s] : 5;
+  }
+
+  /** Daftar model motor yang dimiliki, dari Pengaturan. Tahan isi rusak. */
+  function modelDaftar() {
+    try {
+      const a = JSON.parse(global.App.set('UNIT_TIPE_DAFTAR', '[]') || '[]');
+      if (Array.isArray(a)) {
+        return a.map(function (x) {
+          return {
+            n: String((x && x.n) || ''), m: String((x && x.m) || ''),
+            t: String((x && x.t) || ''), a: String((x && x.a) || ''),
+            th: String((x && x.th) || ''), h: Z.num(x && x.h)
+          };
+        }).filter(function (x) { return x.n; });
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  /** Tahun yang diisikan dari rentang "2022-2026" → tahun terbaru (2026). */
+  function modelTahun(th) {
+    const n = String(th || '').match(/\d{4}/g);
+    if (!n || !n.length) return '';
+    return n.map(Number).sort(function (a, b) { return b - a; })[0];
   }
 
   function pilCounter(label, nilai, warna) {
@@ -1323,6 +1497,26 @@
             miniInfo('perisai', Z.berkasLabel(), c.kyc || berkasOpsiPertama(),
               Z.berkasLengkap(c.kyc) ? 'var(--ok)' : 'var(--warn)') +
             miniInfo('bintang', 'Riwayat sewa', c.totalSewa + 'x • ' + Z.rpSingkat(c.totalBelanja), '') +
+          '</div>' +
+
+          /* Jaminan identitas untuk order INI. Penyewa lama bisa saja
+             memperbarui KTP-nya, jadi yang dipakai di sini disalin ke order
+             saat disimpan — order lama tetap menyimpan bukti versinya sendiri. */
+          '<div class="idn-ord">' +
+            '<div class="idn-ord-kop">' +
+              '<span>Jaminan identitas</span>' +
+              (c.ktp && c.pendukung
+                ? '<span class="badge badge-ok">Lengkap</span>'
+                : '<span class="badge badge-warn">' + (c.ktp ? 'Pendukung belum ada' : 'KTP belum ada') + '</span>') +
+            '</div>' +
+            '<div class="idn-ord-isi">' +
+              miniIdn('KTP', c.ktp) +
+              miniIdn(c.jenisPendukung || 'Pendukung', c.pendukung) +
+            '</div>' +
+            '<button class="btn btn-netral btn-kecil btn-blok" style="margin-top:7px" ' +
+              'data-aksi="ubah-identitas">' + Z.Ikon('kamera', 14) +
+              (c.ktp && c.pendukung ? 'Perbarui identitas penyewa' : 'Lengkapi identitas penyewa') +
+            '</button>' +
           '</div></div>';
       }
       return '<button class="btn btn-netral btn-blok" style="margin-top:11px" data-aksi="pilih-pelanggan">' +
@@ -1418,6 +1612,12 @@
       if (pb) pb.addEventListener('click', function () {
         Hal.pelanggan.form(null, function (id) { f.pelanggan = id; diri.segar(root, { pelanggan: true }); });
       });
+      // Perbarui identitas tanpa meninggalkan form order
+      const ui = Z.$('[data-aksi="ubah-identitas"]', root);
+      if (ui) ui.addEventListener('click', function () {
+        Hal.pelanggan.form(f.pelanggan, function () { diri.segar(root, { pelanggan: true }); });
+      });
+      ikatLihatIdn(root);
     },
 
     ikatLengkap: function (root) {
@@ -1790,12 +1990,31 @@
       const warnaPilihan = ['#1F2430', '#C62828', '#1565C0', '#F2EDE3', '#2E7D32', '#F9A825', '#7E6B8F', '#0097A7', '#D84315', '#8D6E63'];
       const artNow = String(u.foto || 'art:beat:#2E7D32').split(':');
 
+      const model = modelDaftar();
       const isi =
+        /* Pilihan cepat dari daftar model yang memang dimiliki. Satu model
+           sering punya beberapa unit yang hanya beda plat dan warna, jadi yang
+           diisi otomatis hanyalah data MODEL — plat dan warna tetap diisi
+           sendiri supaya tidak ada dua unit bernomor sama. */
+        (!id && model.length
+          ? '<div class="field"><label>Pilih model cepat <span class="t-var">(opsional)</span></label>' +
+            '<div class="chips mdl-chips">' +
+            model.map(function (m, i) {
+              return '<button type="button" class="chip mdl-chip" data-model="' + i + '">' +
+                '<b>' + esc(m.n) + '</b><span>' + esc(m.th || '') + '</span></button>';
+            }).join('') + '</div>' +
+            '<div class="bantu">Mengisi nama, merek, tipe, tahun, dan tarif sekaligus. ' +
+            'Daftar model bisa diubah di <b>Pengaturan</b>.</div></div>'
+          : '') +
         '<div class="field"><label>Nama motor</label><input class="inp" data-u="nama" value="' + esc(u.nama) + '" placeholder="Honda Scoopy Prestige"></div>' +
         '<div class="grid2"><div class="field"><label>Merek</label><input class="inp" data-u="merek" value="' + esc(u.merek) + '"></div>' +
         '<div class="field"><label>Plat nomor</label><input class="inp" data-u="plat" value="' + esc(u.plat) + '" placeholder="P 1234 AB" style="text-transform:uppercase"></div></div>' +
-        '<div class="grid2"><div class="field"><label>Tahun</label><input class="inp" type="number" data-u="tahun" value="' + Z.num(u.tahun) + '"></div>' +
-        '<div class="field"><label>Harga / hari</label><div class="inp-rp"><span>Rp</span><input type="number" data-u="harga" value="' + Z.num(u.harga) + '" step="5000"></div></div></div>' +
+        /* Warna berdampingan dengan tahun: bersama plat nomor, warna inilah yang
+           membedakan beberapa unit dari satu model yang sama. */
+        '<div class="grid2"><div class="field"><label>Warna</label><input class="inp" data-u="warna" value="' +
+          esc(u.warna || '') + '" placeholder="Hitam Doff" maxlength="28"></div>' +
+        '<div class="field"><label>Tahun</label><input class="inp" type="number" data-u="tahun" value="' + Z.num(u.tahun) + '"></div></div>' +
+        '<div class="field"><label>Harga / hari</label><div class="inp-rp"><span>Rp</span><input type="number" data-u="harga" value="' + Z.num(u.harga) + '" step="5000"></div></div>' +
 
         /* Tarif mingguan & paket custom. Keduanya opsional: dikosongkan berarti
            unit ini hanya memakai tarif harian seperti sebelumnya. */
@@ -1889,6 +2108,29 @@
           perbaruiPra();
         });
       });
+      Z.$$('[data-model]', wrap).forEach(function (b2) {
+        b2.addEventListener('click', function () {
+          const m = model[Z.num(b2.getAttribute('data-model'))];
+          if (!m) return;
+          const set = function (k, v) {
+            const el = Z.$('[data-u="' + k + '"]', wrap);
+            if (el && v !== '' && v !== undefined) el.value = v;
+          };
+          set('nama', m.n); set('merek', m.m); set('tipe', m.t);
+          set('tahun', modelTahun(m.th));
+          if (Z.num(m.h) > 0) set('harga', Z.num(m.h));
+          if (m.a) {
+            const tb = Z.$('[data-art="' + m.a + '"]', wrap);
+            if (tb) tb.click();
+          }
+          Z.$$('[data-model]', wrap).forEach(function (x) { x.classList.remove('on'); });
+          b2.classList.add('on');
+          Z.toast(m.n + ' dipilih. Isi plat nomor dan warnanya.', 'info');
+          const plat = Z.$('[data-u="plat"]', wrap);
+          if (plat) plat.focus();
+        });
+      });
+
       const file = Z.$('#fotoUnitFile', wrap);
       file.addEventListener('change', async function () {
         const f = file.files[0];
@@ -1978,6 +2220,7 @@
       '<div class="unit-isi">' +
         '<div><div style="font-weight:700;font-size:15px;line-height:1.25">' + esc(u.nama) + '</div>' +
         '<div class="t-sm t-var">' + esc(u.tipe) + (u.tahun ? ' • ' + esc(u.tahun) : '') +
+          (u.warna ? ' • ' + esc(u.warna) : '') +
           (Z.num(u.odo) ? ' • ' + Z.ribuan(Z.num(u.odo)) + ' km' : '') + '</div></div>' +
         (order ? '<div class="kotak ' + (telat > 0 ? 'kotak-danger' : '') + '" style="display:flex;align-items:center;gap:9px">' +
             U.avatar(c.nama, 'avatar-kecil') +
@@ -2203,6 +2446,13 @@
           global.App.render();
         });
       });
+      Z.$$('[data-riwayat-pel]', root).forEach(function (b) {
+        b.addEventListener('click', function (e) {
+          e.stopPropagation();
+          riwayatSewaPelanggan(b.getAttribute('data-riwayat-pel'));
+        });
+      });
+      ikatLihatIdn(root);
       const tb = Z.$('[data-aksi="pelanggan-baru"]', root);
       if (tb) tb.addEventListener('click', function () { Hal.pelanggan.form(null); });
       const ek = Z.$('[data-aksi="ekspor-pelanggan"]', root);
@@ -2221,6 +2471,8 @@
     form: function (id, setelahSimpan) {
       const p = id ? pel(id) : { nama: '', wa: '', alamat: '', asal: '', ket: '', kyc: berkasOpsiPertama(), tag: 'Baru', catatan: '' };
       const isi =
+        (id ? '<button class="btn btn-netral btn-blok btn-kecil" style="margin-bottom:12px" ' +
+          'data-lihat-riwayat>' + Z.Ikon('jam', 15) + 'Lihat riwayat sewa penyewa ini</button>' : '') +
         '<div class="field"><label>Nama lengkap</label><input class="inp" data-p="nama" value="' + esc(p.nama) + '" placeholder="Nama sesuai KTP"></div>' +
         '<div class="field"><label>Nomor WhatsApp</label><input class="inp" type="tel" data-p="wa" value="' + esc(p.wa) + '" placeholder="08123456789" inputmode="numeric"></div>' +
         '<div class="grid2"><div class="field"><label>Alamat / Kecamatan</label><input class="inp" data-p="alamat" value="' + esc(p.alamat) + '" placeholder="Sumbersari, Jember"></div>' +
@@ -2233,15 +2485,48 @@
         '</select></div><div class="field"><label>Tag</label><select class="sel" data-p="tag">' +
         ['Baru', 'Langganan', 'Bermasalah'].map(function (t) { return '<option' + (p.tag === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') +
         '</select></div></div>' +
+        /* --- Kontak darurat & sosmed --- */
+        '<div class="t-cap t-var" style="margin:14px 0 7px">KONTAK LAIN</div>' +
+        '<div class="grid2">' +
+          '<div class="field"><label>WA yang dibonceng</label><input class="inp" type="tel" ' +
+            'data-p="waBonceng" value="' + esc(p.waBonceng || '') + '" placeholder="08…" inputmode="numeric"></div>' +
+          '<div class="field"><label>WA keluarga aktif</label><input class="inp" type="tel" ' +
+            'data-p="waKeluarga" value="' + esc(p.waKeluarga || '') + '" placeholder="08…" inputmode="numeric"></div>' +
+        '</div>' +
+        '<div class="t-cap t-var" style="margin:8px 0 7px">SOSMED <span class="t-var">(bila ada)</span></div>' +
+        '<div class="grid2">' +
+          '<div class="field"><label>Instagram</label><input class="inp" data-p="ig" value="' +
+            esc(p.ig || '') + '" placeholder="@akun"></div>' +
+          '<div class="field"><label>TikTok</label><input class="inp" data-p="tiktok" value="' +
+            esc(p.tiktok || '') + '" placeholder="@akun"></div>' +
+        '</div>' +
+        '<div class="field"><label>Facebook</label><input class="inp" data-p="fb" value="' +
+          esc(p.fb || '') + '" placeholder="Nama akun / tautan"></div>' +
+
+        /* --- Jaminan 2 identitas --- */
         (global.App.set('FITUR_KTP', 'YA') === 'YA' ?
-          '<div class="field"><label>Foto KTP / SIM (opsional)</label>' +
-          '<input class="inp" type="file" accept="image/*" id="fileKtp" style="padding:9px">' +
+          '<div class="t-cap t-var" style="margin:14px 0 7px">JAMINAN 2 IDENTITAS</div>' +
+          '<div class="bantu" style="margin-bottom:8px">KTP wajib, ditambah satu identitas ' +
+          'pendukung yang masih berlaku. Identitas pendukung boleh milik teman, pasangan, ' +
+          'atau keluarga yang ikut bertanggung jawab.</div>' +
+          '<div id="idnWadah">' + idnHtml({ ktp: p.ktp || '', pendukung: p.pendukung || '' }) + '</div>' +
+          '<div class="grid2" style="margin-top:9px">' +
+            '<div class="field"><label>Jenis identitas pendukung</label>' +
+              '<select class="sel" data-p="jenisPendukung"><option value="">— pilih —</option>' +
+              pendukungOpsi().concat(
+                p.jenisPendukung && pendukungOpsi().indexOf(p.jenisPendukung) < 0 ? [p.jenisPendukung] : []
+              ).map(function (t) {
+                return '<option' + (p.jenisPendukung === t ? ' selected' : '') + '>' + esc(t) + '</option>';
+              }).join('') + '</select></div>' +
+            '<div class="field"><label>Nomor KTP</label><input class="inp" data-p="noKtp" value="' +
+              esc(p.noKtp || '') + '" placeholder="16 digit" inputmode="numeric" maxlength="20"></div>' +
+          '</div>' +
           panduanUnggah([
             'Letakkan kartu di permukaan datar, potret <b>tegak lurus dari atas</b> — bukan menyerong.',
             'Pastikan <b>NIK dan nama terbaca jelas</b>, keempat sudut kartu masuk bingkai.',
             'Hindari pantulan cahaya atau bayangan tangan di atas kartu.'
           ], 'Tersimpan di folder Google Drive milik Anda sendiri, bukan di perangkat ini. ' +
-             'Otomatis dikecilkan ke 1.200 px.') + '</div>' : '') +
+             'Otomatis dikecilkan ke 1.200 px.') : '') +
         '<div class="field" style="margin-bottom:0"><label>Catatan</label><textarea class="ta" data-p="catatan" maxlength="300">' + esc(p.catatan) + '</textarea></div>';
 
       const wrap = Z.Sheet.buka({
@@ -2249,22 +2534,30 @@
         aksi: '<button class="btn btn-netral" data-batal>Batal</button>' +
               '<button class="btn btn-utama" data-simpan>' + Z.Ikon('check', 17) + 'Simpan</button>'
       });
-      let ktp = p.ktp || '';
-      const fk = Z.$('#fileKtp', wrap);
-      if (fk) fk.addEventListener('change', async function () {
-        const file = fk.files[0];
-        if (!file) return;
-        Z.toast('Mengunggah berkas…', 'info');
-        const b64 = await kompresGambar(file, 1200);
-        const r = await global.App.kirim('upload.foto', { base64: b64, mime: 'image/jpeg', jenis: 'pelanggan', nama: 'ktp' });
-        if (r.success) { ktp = r.data.url; Z.toast('Berkas tersimpan di Drive.'); }
-      });
+      const idn = { ktp: p.ktp || '', pendukung: p.pendukung || '' };
+      function gambarIdn() {
+        const w = Z.$('#idnWadah', wrap);
+        if (!w) return;
+        w.innerHTML = idnHtml(idn);
+        ikatIdentitas(wrap, idn, gambarIdn);
+      }
+      ikatIdentitas(wrap, idn, gambarIdn);
+
+      const lr = Z.$('[data-lihat-riwayat]', wrap);
+      if (lr) lr.addEventListener('click', function () { riwayatSewaPelanggan(id); });
+
       Z.$('[data-batal]', wrap).addEventListener('click', function () { Z.Sheet.tutup(); });
       Z.$('[data-simpan]', wrap).addEventListener('click', async function () {
         const d = { id: id || '' };
         Z.$$('[data-p]', wrap).forEach(function (i) { d[i.getAttribute('data-p')] = i.value; });
-        if (ktp) d.ktp = ktp;
+        // Dikirim apa adanya, termasuk saat dikosongkan, supaya menghapus
+        // gambar di layar benar-benar menghapusnya di data.
+        d.ktp = idn.ktp;
+        d.pendukung = idn.pendukung;
         if (!d.nama) return Z.toast('Nama wajib diisi.', 'err');
+        if (idn.pendukung && !d.jenisPendukung) {
+          return Z.toast('Pilih dulu jenis identitas pendukungnya.', 'err');
+        }
         const r = await global.App.kirim('pelanggan.simpan', d);
         if (!r.success) return;
         Z.Sheet.tutup();
@@ -2273,6 +2566,95 @@
       });
     }
   };
+
+  /**
+   * Riwayat sewa satu penyewa: semua order dari yang terbaru, lengkap dengan
+   * identitas yang DIJAMINKAN pada masing-masing order. Penyewa lama sering
+   * memperbarui KTP atau mengganti identitas pendukung, jadi yang ditampilkan
+   * per order adalah salinan milik order itu — bukan identitas terbaru.
+   */
+  function riwayatSewaPelanggan(id) {
+    const p = pel(id);
+    const ord = (D().pesanan || []).filter(function (o) { return o.pelanggan === id; })
+      .sort(function (a, b) { return String(b.mulai).localeCompare(String(a.mulai)); });
+
+    const totalBayar = ord.reduce(function (s, o) { return s + Z.num(o.dibayar); }, 0);
+    const hariTotal = ord.reduce(function (s, o) {
+      return s + Math.max(1, Z.selisihHari(o.mulai, o.kembali) || 1);
+    }, 0);
+    const piutang = ord.reduce(function (s, o) {
+      return s + Math.max(0, Z.num(o.total) - Z.num(o.dibayar));
+    }, 0);
+
+    const stat = '<div class="grid3" style="gap:8px;margin-bottom:11px">' +
+      miniInfo('dokumen', 'Order', ord.length + '×', '') +
+      miniInfo('jam', 'Total hari', hariTotal + ' hari', '') +
+      miniInfo('dompet', 'Dibayar', Z.rpSingkat(totalBayar), '') +
+      '</div>' +
+      (piutang > 0 ? '<div class="kotak" style="margin-bottom:11px;border-color:var(--danger)">' +
+        '<div class="t-cap" style="color:var(--danger)">Sisa tagihan belum lunas</div>' +
+        '<div class="t-rp" style="color:var(--danger)">' + Z.rp(piutang) + '</div></div>' : '');
+
+    const daftar = !ord.length
+      ? '<div class="t-sm t-var" style="padding:14px 2px;text-align:center">' +
+        'Belum ada riwayat sewa untuk penyewa ini.</div>'
+      : ord.map(function (o) {
+          const u = unit(o.unit);
+          const j = o.jaminan || {};
+          const lunas = Z.num(o.total) - Z.num(o.dibayar) <= 0;
+          return '<article class="rwp-baris" data-rwp-order="' + esc(o.id) + '">' +
+            '<div class="rwp-kop">' +
+              '<b>' + esc(u.plat || u.nama || o.unit) + '</b>' +
+              U.badge(o.status, o.status === 'Selesai' ? 'ok'
+                : (o.status === 'Terlambat' ? 'danger' : (o.status === 'Berjalan' ? 'ungu' : 'info'))) +
+            '</div>' +
+            '<div class="t-sm t-var">' + esc(u.nama || '') + ' · ' +
+              esc(Z.tglPendek(o.mulai)) + ' → ' + esc(Z.tglPendek(o.kembali)) + '</div>' +
+            '<div class="rwp-kaki">' +
+              '<span class="t-rp">' + Z.rp(o.total) + '</span>' +
+              '<span class="t-sm" style="color:' + (lunas ? 'var(--ok)' : 'var(--warn)') + '">' +
+                (lunas ? 'Lunas' : 'Kurang ' + Z.rpSingkat(Z.num(o.total) - Z.num(o.dibayar))) + '</span>' +
+            '</div>' +
+            /* Order lama bisa saja dibuat sebelum jaminan dicatat. Dua kotak
+               kosong setinggi 110px hanya memakan layar, jadi diganti satu baris. */
+            (j.ktp || j.pendukung
+              ? '<div class="rwp-idn">' +
+                  miniIdn('KTP', j.ktp) +
+                  miniIdn(j.jenisPendukung || 'Pendukung', j.pendukung) +
+                '</div>'
+              : '<div class="rwp-nol">' + Z.Ikon('kartu', 13) +
+                'Jaminan identitas tidak tercatat pada order ini</div>') +
+          '</article>';
+        }).join('');
+
+    const wrap = Z.Sheet.buka({
+      judul: 'Riwayat Sewa', ikon: 'jam',
+      isi: '<div class="kotak" style="margin-bottom:11px;display:flex;align-items:center;gap:11px">' +
+          U.avatar(p.nama) +
+          '<div style="min-width:0"><b style="font-size:14px">' + esc(p.nama || id) + '</b>' +
+          '<div class="t-sm t-var">' + esc(Z.hpCantik(p.wa) || 'Nomor WA belum ada') + '</div></div>' +
+        '</div>' + stat +
+        '<div class="t-cap t-var" style="margin-bottom:7px">DAFTAR ORDER</div>' +
+        '<div class="rwp-daftar">' + daftar + '</div>',
+      aksi: '<button class="btn btn-netral" data-batal>Tutup</button>' +
+            '<button class="btn btn-utama" data-order-baru>' + Z.Ikon('plus', 17) + 'Buat Order</button>'
+    });
+    Z.$('[data-batal]', wrap).addEventListener('click', function () { Z.Sheet.tutup(); });
+    Z.$('[data-order-baru]', wrap).addEventListener('click', function () {
+      Z.Sheet.tutup();
+      FormOrder.data = null; FormOrder.idSumber = null;
+      global.App.ke('order-baru');
+      setTimeout(function () { FormOrder.data.pelanggan = id; global.App.render(); }, 60);
+    });
+    Z.$$('[data-rwp-order]', wrap).forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        if (e.target.closest('.idn-mini')) return;
+        Z.Sheet.tutup();
+        Hal.detailOrder(el.getAttribute('data-rwp-order'));
+      });
+    });
+    ikatLihatIdn(wrap, function () { riwayatSewaPelanggan(id); });
+  }
 
   function kartuPelanggan(p) {
     const ord = (D().pesanan || []).filter(function (o) { return o.pelanggan === p.id; });
@@ -2299,13 +2681,18 @@
           : (p.tag === 'Langganan' ? U.badge(p.totalSewa + '× Sewa', 'kuning', 'bintang')
             : U.badge(p.totalSewa + '× Sewa', 'info'))) +
       '</div>' +
-      '<div class="kotak" style="margin-top:11px;display:flex;align-items:center;justify-content:space-between;gap:9px">' +
-        '<div style="display:flex;align-items:center;gap:8px;min-width:0">' +
-          '<span style="color:' + (p.kyc === 'Lengkap' ? 'var(--ok)' : 'var(--warn)') + '">' + Z.Ikon('perisai', 17) + '</span>' +
-          '<span style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-          esc(p.kyc === 'Lengkap' ? 'KTP & SIM terverifikasi' : (p.kyc === 'KTP Saja' ? 'KTP tersimpan' : 'Dokumen belum lengkap')) + '</span></div>' +
-        (p.ktp ? '<a class="tautan" href="' + esc(p.ktp) + '" target="_blank" rel="noopener">Lihat berkas</a>' :
-          '<span class="t-sm t-var">' + esc(p.statusWA === 'Terdaftar' ? 'WA aktif' : '') + '</span>') +
+      /* Jaminan 2 identitas, langsung terlihat sebagai gambar kecil —
+         pemilik tidak perlu membuka tautan untuk tahu mana yang kosong. */
+      '<div class="idn-ord" style="margin-top:11px">' +
+        '<div class="idn-ord-kop">' +
+          '<span>Jaminan identitas</span>' +
+          (p.ktp && p.pendukung ? '<span class="badge badge-ok">Lengkap</span>'
+            : '<span class="badge badge-warn">' + (p.ktp ? 'Pendukung belum ada' : 'KTP belum ada') + '</span>') +
+        '</div>' +
+        '<div class="idn-ord-isi">' +
+          miniIdn('KTP', p.ktp) +
+          miniIdn(p.jenisPendukung || 'Pendukung', p.pendukung) +
+        '</div>' +
       '</div>' +
       '<div class="grid2" style="margin-top:9px;gap:8px">' +
         miniInfo('dompet', 'Total belanja', Z.rp(p.totalBelanja), '') +
@@ -2320,12 +2707,19 @@
           ? '<button class="btn btn-kecil btn-bahaya" data-wa="' + esc(aktif.id) + '" data-wa-tipe="MENU">' +
             Z.Ikon('alert', 15) + 'Tagih</button>'
           : '<button class="btn btn-kecil btn-ink" data-order-pelanggan="' + esc(p.id) + '">' + Z.Ikon('plus', 15) + 'Buat Order</button>') +
-      '</div></article>';
+      '</div>' +
+      '<button class="btn btn-netral btn-kecil btn-blok" style="margin-top:8px" ' +
+        'data-riwayat-pel="' + esc(p.id) + '">' + Z.Ikon('jam', 15) +
+        'Riwayat sewa' + (ord.length ? ' (' + ord.length + ')' : '') + '</button>' +
+      '</article>';
   }
 
   /* dipakai pages2.js */
   global.PagesUtil = {
     D: D, unit: unit, pel: pel, orderById: orderById, kolomCari: kolomCari,
-    pilCounter: pilCounter, miniInfo: miniInfo, unduhCsv: unduhCsv, FormOrder: FormOrder
+    pilCounter: pilCounter, miniInfo: miniInfo, unduhCsv: unduhCsv, FormOrder: FormOrder,
+    miniIdn: miniIdn, lihatIdentitas: lihatIdentitas, ikatLihatIdn: ikatLihatIdn,
+    riwayatSewaPelanggan: riwayatSewaPelanggan,
+    modelDaftar: modelDaftar, modelTahun: modelTahun
   };
 })(window);

@@ -726,6 +726,275 @@ hapus dua kali untuk ID yang sama juga aman — tidak dianggap error.
 
 ---
 
+## Bagian Q — Papan Ketersediaan: motor mana yang kosong tanggal berapa
+
+**Lainnya → Papan Ketersediaan.**
+
+Papan ini bekerja seperti papan kamar hotel: unit berbaris ke bawah, tanggal
+berjalan ke samping. Satu layar menjawab pertanyaan yang paling sering muncul —
+*"tanggal 25 sampai 26 nanti, motor apa yang masih bisa dijanjikan?"*
+
+| Warna kotak | Artinya |
+|---|---|
+| Kosong / abu terang | **Ready** di garasi, belum dijanjikan ke siapa pun |
+| Kuning | Sudah **dibooking** pada tanggal itu |
+| Ungu | Sewanya **sedang berjalan** |
+| Biru | Masuk **servis** atau sudah dijadwalkan servis |
+| Gelap | Unit **nonaktif** |
+
+Yang perlu diketahui:
+
+* Kolom plat nomor **menempel di kiri** saat papan digeser ke samping, jadi Anda
+  tidak pernah kehilangan jejak baris mana yang sedang dilihat.
+* Rentang bisa diubah **7 / 14 / 30 hari**, dan daftar unit bisa disaring per merek
+  atau dicari lewat plat.
+* Urutannya **merek → nama → plat**. Ini penting karena satu model bisa punya
+  beberapa unit yang hanya beda plat dan warna — dengan urutan itu, unit sejenis
+  selalu berkumpul dan mudah dibandingkan.
+* Mengetuk satu kotak yang terisi membuka order yang menempatinya.
+
+Papan ini **membaca**, tidak mengubah. Semua warna di atas berasal dari data order
+dan servis yang sudah ada — tidak ada status yang perlu diisi manual.
+
+---
+
+## Bagian R — Riwayat Unit: satu motor, satu halaman
+
+**Lainnya → Riwayat Unit**, lalu pilih platnya.
+
+Halaman ini selalu terkunci ke **satu plat**, bukan ke nama model, karena beberapa
+unit bisa bernama sama. Isinya:
+
+* Empat angka ringkas: total disewa, hari terpakai, pemasukan, dan biaya perawatan.
+* **Riwayat penyewa** — siapa saja yang pernah memakainya, berurutan dari yang
+  terbaru, dengan periode, lama, status, dan nominalnya. Diketuk membuka ordernya.
+* **Riwayat servis** — gabungan catatan servis dan catatan servis berkala
+  (oli, gardan, CVT, filter, kampas), masing-masing dengan tanggal, odometer,
+  bengkel, dan biaya.
+
+Dari halaman ini juga ada tombol untuk langsung mencatat servis unit tersebut.
+
+---
+
+## Bagian S — Servis Berkala: catatan oli tiap motor
+
+Dulu catatannya di buku atau di catatan HP, seperti ini:
+
+```
+P 2596 RK | BEAT 2018
+Oli mesin  : 30-10-26 (95.284 km)
+Gardan     :
+CVT        :
+Filter     :
+Kampas Dpn :
+Kampas Blkg:
+```
+
+Sekarang **Lainnya → Servis Berkala** menggantikannya, dan menghitung sendiri kapan
+jatuh temponya.
+
+### Mencatat
+
+Tekan **Catat** pada kartu unit, lalu pilih itemnya (Oli Mesin, Oli Gardan, CVT,
+Filter Udara, Kampas Rem Depan/Belakang), isi tanggal, odometer, biaya, dan bengkel.
+
+Tiga hal terjadi sekaligus:
+
+1. Catatan masuk ke riwayat unit itu.
+2. **Odometer unit ikut maju** — tapi hanya kalau angkanya lebih besar, supaya
+   salah ketik tidak pernah memundurkan odometer.
+3. Biaya di atas 0 **otomatis tercatat sebagai pengeluaran** di Keuangan, dengan
+   kategori *Servis & Perawatan*. Kalau catatannya dihapus, baris kas itu ikut
+   terhapus — tidak ada pengeluaran yatim di laporan.
+
+### Pengingatnya
+
+Tiap item punya dua patokan: **tiap berapa km** dan **tiap berapa hari**. Yang mana
+pun tercapai lebih dulu, itulah yang dipakai.
+
+| Tanda | Artinya |
+|---|---|
+| **Lewat** (merah) | Sudah melewati jatuh tempo |
+| **Segera** (kuning) | Mendekati jatuh tempo |
+| Tanpa tanda | Masih aman |
+| — | Belum pernah dicatat |
+
+Panel **Perlu dikerjakan** di atas halaman mengumpulkan semuanya dari seluruh
+armada, yang paling mendesak di urutan pertama. Yang sama juga muncul di
+**Beranda → Perlu Perhatian**, satu kartu per motor (item yang paling mendesak
+saja) supaya panel itu tidak tenggelam kalau banyak yang jatuh tempo bersamaan.
+
+### Mengaturnya sendiri
+
+**Pengaturan → Servis Berkala.** Di sana Anda bisa:
+
+* Mengubah nama item, atau menambah item baru (misalnya *Ban Belakang*) — maksimal
+  12 item.
+* Mengubah interval **km** dan **hari** tiap item. Isi **0** pada patokan yang tidak
+  dipakai — misalnya kampas rem yang Anda pantau dari jarak saja, bukan dari waktu.
+* Mengatur sejak kapan diingatkan: **sisa km** (bawaan 300 km) dan **sisa hari**
+  (bawaan 7 hari).
+
+Setelah disimpan, item baru langsung muncul di semua kartu unit.
+
+---
+
+## Bagian T — Jaminan 2 identitas
+
+Ini pesan yang biasa Anda kirim ke calon penyewa, dan sekarang aplikasi
+mengikutinya:
+
+> **KTP wajib**, ditambah **satu identitas pendukung** yang masih berlaku — Paspor,
+> KTM, Kartu Pelajar, Kartu Kerja, NPWP, BPJS, KITAS, atau SIM A/B. Identitas
+> pendukung boleh milik teman, pasangan, atau keluarga yang ikut bertanggung jawab.
+
+### Mengunggahnya
+
+Ada dua tempat, dan keduanya sama:
+
+* **Pelanggan → kartu penyewa** (atau Pelanggan Baru)
+* **Buat Order → ringkasan penyewa → Lengkapi / Perbarui identitas penyewa**
+
+Tiap kotak punya **dua tombol terpisah**: *Ambil dari galeri* dan *Foto langsung*.
+Dibuat terpisah karena satu tombol gabungan pada sebagian HP langsung membuka kamera
+dan menghilangkan pilihan galeri.
+
+Pratinjau gambarnya tampil di kartu pelanggan, di form pelanggan, dan di ringkasan
+penyewa saat membuat order — jadi tidak perlu membuka tautan untuk tahu mana yang
+masih kosong.
+
+### Penyewa yang kembali dengan identitas berbeda
+
+Penyewa langganan kadang memperbarui KTP-nya, atau menjaminkan identitas pendukung
+yang berbeda dari sebelumnya. Supaya tidak bertabrakan:
+
+* Saat sebuah order **dibuat**, identitas yang sedang dijaminkan **disalin ke order
+  itu** sebagai bukti miliknya sendiri.
+* Salinan itu **tidak pernah ditimpa** sesudahnya. Memperbarui KTP di data pelanggan
+  hanya berlaku untuk order **berikutnya**.
+* Jadi order bulan lalu tetap memperlihatkan KTP versi lama dan KTM yang dipakai saat
+  itu, sementara order hari ini memperlihatkan KTP baru dan SIM A — keduanya benar
+  untuk waktunya masing-masing.
+
+Riwayat sewa tiap penyewa memperlihatkan jaminan per order, jadi perbedaannya terlihat
+berurutan.
+
+### Di kwitansi online
+
+Kwitansi hanya menyebut **jenis** identitas yang dijaminkan dan bahwa keduanya sudah
+diterima — **gambarnya tidak pernah ikut**, karena tautan kwitansi bisa diteruskan
+siapa pun. Gambarnya hanya ada di dashboard Anda.
+
+---
+
+## Bagian U — Galeri Identitas
+
+**Lainnya → Galeri Identitas.**
+
+Kumpulan KTP dan identitas pendukung **seluruh penyewa** dalam satu halaman, urut
+dari yang paling baru menyewa. Tiap baris memuat nama, nomor WA, NIK bila diisi,
+jumlah sewa, dan tanggal terakhir menyewa.
+
+Saringannya: **Ada gambar / Lengkap / Belum lengkap / Semua penyewa**. Saringan
+*Belum lengkap* adalah yang paling berguna — itulah daftar penyewa yang jaminannya
+masih perlu dilengkapi.
+
+Tombol **Riwayat order** pada tiap baris membuka riwayat sewa penyewa itu, lengkap
+dengan jaminan per ordernya.
+
+---
+
+## Bagian V — Riwayat sewa tiap penyewa
+
+Di **Pelanggan**, tiap kartu punya tombol **Riwayat sewa** dengan jumlah ordernya.
+Tombol yang sama juga ada di dalam form pelanggan.
+
+Isinya: jumlah order, total hari, total dibayar, sisa tagihan bila ada, lalu daftar
+ordernya dari yang terbaru — plat, nama motor, periode, nominal, status bayar, dan
+jaminan identitas order itu. Mengetuk satu baris membuka ordernya.
+
+### Data kontak tambahan
+
+Form pelanggan — dan ringkasan penyewa di Buat Order — kini juga menampung:
+
+* **No. WA yang dibonceng**
+* **No. WA keluarga aktif**
+* **Instagram, TikTok, Facebook**
+* **Nomor KTP** dan **jenis identitas pendukung**
+
+Semuanya opsional, tapi dua nomor WA tambahan itu yang paling sering menyelamatkan
+saat unit terlambat kembali dan nomor utama tidak aktif.
+
+---
+
+## Bagian W — Daftar Model Motor
+
+**Pengaturan → Daftar Model Motor.**
+
+Daftar ini sudah diisi dengan armada Anda: NEX II, BEAT, BEAT LED, SCOOPY (tiga
+generasi), VARIO 125, VARIO 125 New, VARIO 160 New, PCX 160, NMAX, dan NMAX New —
+masing-masing dengan rentang tahunnya.
+
+Gunanya: saat menambah unit baru, di atas form muncul **chip pilihan model**. Sekali
+ketuk, nama, merek, tipe, tahun, tarif, dan gambar kartunya terisi sekaligus.
+
+**Plat nomor dan warna sengaja tidak diisi otomatis** — justru dua hal itulah yang
+membedakan beberapa unit dari satu model yang sama, jadi harus Anda isi sendiri agar
+tidak ada dua unit bernomor sama.
+
+Daftarnya bisa diubah kapan saja: nama model, merek, rentang tahun, dan tarif per
+hari. Tambah model baru dengan **Tambah model**, maksimal 40.
+
+> Rentang tahun seperti `2022-2026` hanya penunjuk. Saat chip diketuk, kolom Tahun
+> diisi tahun **terbaru** dari rentang itu — tinggal diubah bila unitnya lebih tua.
+
+---
+
+## Bagian X — Menandai serah terima dan pengembalian
+
+Linimasa di kwitansi online **mencatat kejadian, bukan menebaknya**. Centang
+*"Unit diserahkan ke penyewa"* hanya muncul setelah Anda benar-benar menandainya —
+bukan karena tanggal order sudah tiba.
+
+### Saat menyerahkan unit
+
+Di detail order ada dua jalan:
+
+1. **Unggah Foto Serah Terima** — jalur lengkap, dengan bukti foto.
+2. **Tandai sudah diserahkan** — untuk saat Anda tidak sempat memfoto. Status order
+   menjadi *Berjalan*, unit menjadi *Disewa*, dan centangnya menyala. Fotonya masih
+   bisa ditambahkan belakangan.
+
+Menandai dua kali tidak menimbulkan masalah — waktu penyerahan yang pertama tetap
+dipakai.
+
+### Saat unit kembali
+
+Tekan **Selesaikan** (atau catat pengembalian beserta fotonya) di detail order.
+Centang *"Unit dikembalikan"* menyala, dan order **otomatis** berstatus *Selesai*
+sekaligus membebaskan unitnya di Papan Ketersediaan.
+
+### Nama penyewa di kwitansi
+
+Secara bawaan nama penyewa ditampilkan **utuh**. Kalau suatu saat ingin disamarkan
+kembali, matikan **Tampilkan nama penyewa secara utuh** di Pengaturan.
+
+---
+
+## Bagian Y — Syarat & Ketentuan di kwitansi
+
+Kwitansi online memuat syarat dan ketentuan yang bisa Anda susun sendiri, dan sudah
+terisi dengan ketentuan Anda: **Pembayaran & Booking, Area Penggunaan, Dilarang,
+Denda & Tanggung Jawab, Penolakan/Penarikan Unit**, dan **Jaminan Sewa 2 Identitas**,
+ditutup kalimat persetujuan penyewa.
+
+**Pengaturan → Syarat & Ketentuan Kwitansi.** Tiap blok punya judul dan beberapa
+poin. Anda bisa mengubah teksnya, menambah atau menghapus poin, menambah blok baru,
+dan membuang blok yang tidak dipakai. Blok tanpa judul dan tanpa poin otomatis
+dibuang saat disimpan.
+
+---
+
 ## Cara memperbarui aplikasi nanti
 
 Kalau ada perbaikan berkas frontend, dari folder kerja jalankan tiga perintah:

@@ -17,6 +17,79 @@
      Berada di lingkup modul karena dipakai oleh DUA fungsi berbeda —
      perakit HTML halaman dan penggambar ulang saat daftar diubah. */
   /** Satu baris pengaturan kotak foto serah terima: nama + saklar wajib + hapus. */
+  /** Baris pengaturan satu item servis berkala. */
+  function berkalaBarisHtml(arr) {
+    if (!arr.length) return '<div class="t-sm t-var" style="padding:8px 2px">Belum ada item.</div>';
+    return arr.map(function (x, i) {
+      return '<div class="brk-set-baris">' +
+        '<input class="inp" data-bknm="' + i + '" value="' + esc(x.n) + '" maxlength="28" placeholder="Nama item">' +
+        '<input class="inp" type="number" data-bkkm="' + i + '" value="' + Z.num(x.km) + '" min="0" step="500">' +
+        '<input class="inp" type="number" data-bkhr="' + i + '" value="' + Z.num(x.hari) + '" min="0">' +
+        '<button type="button" class="ikon-btn ikon-btn-kecil" data-bkdel="' + i + '" aria-label="Hapus">' +
+          Z.Ikon('sampah', 16) + '</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  /** Baris pengaturan satu model motor yang dimiliki. */
+  function modelBarisHtml(arr) {
+    if (!arr.length) return '<div class="t-sm t-var" style="padding:8px 2px">Belum ada model.</div>';
+    return arr.map(function (x, i) {
+      return '<div class="mdl-set-baris">' +
+        '<input class="inp" data-mdnm="' + i + '" value="' + esc(x.n) + '" maxlength="40" placeholder="Honda BEAT LED">' +
+        '<input class="inp" data-mdmr="' + i + '" value="' + esc(x.m) + '" maxlength="20" placeholder="Honda">' +
+        '<input class="inp" data-mdth="' + i + '" value="' + esc(x.th) + '" maxlength="12" placeholder="2022-2026">' +
+        '<div class="inp-rp"><span>Rp</span><input type="number" data-mdhg="' + i + '" value="' +
+          Z.num(x.h) + '" step="5000"></div>' +
+        '<button type="button" class="ikon-btn ikon-btn-kecil" data-mddel="' + i + '" aria-label="Hapus">' +
+          Z.Ikon('sampah', 16) + '</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  /** Syarat & ketentuan tersimpan: [{j, i:[...]}] — tahan isi rusak. */
+  function syaratTersimpan() {
+    try {
+      const a = JSON.parse(global.App.set('SYARAT_KETENTUAN', '[]') || '[]');
+      if (Array.isArray(a)) {
+        return a.map(function (x) {
+          return { j: String((x && x.j) || ''),
+                   i: (Array.isArray(x && x.i) ? x.i : []).map(String) };
+        });
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  /** Satu blok S&K di Pengaturan: judul + poin-poinnya. */
+  function syaratBlokHtml(arr) {
+    if (!arr.length) return '<div class="t-sm t-var" style="padding:8px 2px">Belum ada blok ketentuan.</div>';
+    return arr.map(function (b2, i) {
+      return '<div class="sk-edit">' +
+        '<div class="sk-edit-kop">' +
+          '<input class="inp sk-edit-judul" data-skjudul="' + i + '" value="' + esc(b2.j) +
+            '" maxlength="48" placeholder="Judul blok, mis. PEMBAYARAN">' +
+          '<button type="button" class="ikon-btn ikon-btn-kecil" data-skhapusblok="' + i +
+            '" aria-label="Hapus blok">' + Z.Ikon('sampah', 16) + '</button>' +
+        '</div>' +
+        '<div class="sk-edit-poin">' +
+          (b2.i.length
+            ? b2.i.map(function (t, k) {
+                return '<div class="sk-poin-baris">' +
+                  '<textarea class="inp sk-poin" data-skpoin="' + i + '.' + k + '" rows="1" ' +
+                    'placeholder="Isi ketentuan">' + esc(t) + '</textarea>' +
+                  '<button type="button" class="ikon-btn ikon-btn-kecil" data-skhapuspoin="' + i + '.' + k +
+                    '" aria-label="Hapus poin">' + Z.Ikon('x', 15) + '</button>' +
+                '</div>';
+              }).join('')
+            : '<div class="t-sm t-var">Blok ini belum punya poin.</div>') +
+        '</div>' +
+        '<button type="button" class="btn btn-netral btn-kecil btn-blok" data-sktambahpoin="' + i + '">' +
+          Z.Ikon('plus', 14) + 'Tambah poin</button>' +
+      '</div>';
+    }).join('');
+  }
+
   /** Baris pengaturan untuk satu pilihan status berkas penyewa. */
   function berkasBarisHtml(arr) {
     if (!arr.length) return '<div class="t-sm t-var" style="padding:10px 2px">Belum ada pilihan status.</div>';
@@ -1256,6 +1329,47 @@
         '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" id="setBayarTambah">' +
           Z.Ikon('plus', 15) + 'Tambah metode pembayaran</button></section>';
 
+      /* ---------- Daftar model motor yang dimiliki ---------- */
+      html += '<section class="kartu"><h3 class="t-judul">Daftar Model Motor</h3>' +
+        '<div class="t-sm t-var" style="margin-top:4px">Dipakai sebagai pilihan cepat saat ' +
+        'menambah unit baru, supaya nama dan tarifnya tidak perlu diketik ulang. Satu model ' +
+        'boleh punya banyak unit — yang membedakan plat nomor dan warnanya.</div>' +
+        '<div class="mdl-set-kop"><span>Nama model</span><span>Merek</span><span>Tahun</span>' +
+          '<span>Tarif/hari</span><span></span></div>' +
+        '<div id="setModel">' + modelBarisHtml(P.modelDaftar()) + '</div>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:8px" id="setModelTambah">' +
+          Z.Ikon('plus', 15) + 'Tambah model</button></section>';
+
+      /* ---------- Interval servis berkala ---------- */
+      html += '<section class="kartu"><h3 class="t-judul">Servis Berkala</h3>' +
+        '<div class="t-sm t-var" style="margin-top:4px">Item yang Anda catat tiap motor, berikut ' +
+        'jarak dan selang waktu penggantiannya. Isi <b>0</b> bila patokan itu tidak dipakai.</div>' +
+        '<div class="brk-set-kop"><span>Item</span><span>Tiap km</span><span>Tiap hari</span><span></span></div>' +
+        '<div id="setBerkala">' + berkalaBarisHtml(berkalaItem()) + '</div>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:8px" id="setBerkalaTambah">' +
+          Z.Ikon('plus', 15) + 'Tambah item</button>' +
+        '<div class="grid2" style="margin-top:11px">' +
+          '<div class="field" style="margin-bottom:0"><label>Ingatkan sejak sisa (km)</label>' +
+            '<input class="inp" type="number" id="setIngatKm" value="' +
+            esc(global.App.set('PERAWATAN_INGAT_KM', '300')) + '" min="0" step="50"></div>' +
+          '<div class="field" style="margin-bottom:0"><label>Ingatkan sejak sisa (hari)</label>' +
+            '<input class="inp" type="number" id="setIngatHari" value="' +
+            esc(global.App.set('PERAWATAN_INGAT_HARI', '7')) + '" min="0"></div>' +
+        '</div></section>';
+
+      /* ---------- Syarat & ketentuan kwitansi ---------- */
+      html += '<section class="kartu"><h3 class="t-judul">Syarat &amp; Ketentuan</h3>' +
+        '<div class="t-sm t-var" style="margin-top:4px">Tampil di bagian bawah kwitansi online ' +
+        'yang Anda kirim ke penyewa. Susun per blok — judulnya huruf besar, isinya daftar poin.</div>' +
+        '<div class="kotak" style="margin-top:11px;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+          '<div><div style="font-weight:600;font-size:12.5px">Tampilkan nama penyewa utuh</div>' +
+          '<div class="t-sm t-var">Matikan untuk menyamarkan jadi <code>D•••s A••••a</code></div></div>' +
+          '<label class="switch"><input type="checkbox" id="setNamaUtuh"' +
+            (global.App.set('PUBLIK_NAMA_UTUH', 'YA') === 'YA' ? ' checked' : '') + '><i></i></label></div>' +
+        '<div id="setSyarat" style="margin-top:11px">' + syaratBlokHtml(syaratTersimpan()) + '</div>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" id="setSyaratTambah">' +
+          Z.Ikon('plus', 15) + 'Tambah blok ketentuan</button></section>';
+
       /* ---------- Kelengkapan berkas penyewa ---------- */
       html += '<section class="kartu"><h3 class="t-judul">' + esc(Z.berkasLabel()) + '</h3>' +
         '<div class="t-sm t-var" style="margin-top:4px">Status berkas penyewa — dulu tertulis ' +
@@ -1498,6 +1612,128 @@
           });
       });
 
+      /* ---------- Daftar model motor ---------- */
+      let mdl = P.modelDaftar();
+      function gambarMdl() {
+        const w = Z.$('#setModel', root);
+        if (!w) return;
+        w.innerHTML = modelBarisHtml(mdl);
+        ikatMdl();
+      }
+      function ikatMdl() {
+        [['mdnm', 'n', false], ['mdmr', 'm', false], ['mdth', 'th', false], ['mdhg', 'h', true]]
+          .forEach(function (cfg) {
+            Z.$$('[data-' + cfg[0] + ']', root).forEach(function (i) {
+              i.addEventListener('input', function () {
+                mdl[Z.num(i.getAttribute('data-' + cfg[0]))][cfg[1]] = cfg[2] ? Z.num(i.value) : i.value;
+              });
+            });
+          });
+        Z.$$('[data-mddel]', root).forEach(function (b2) {
+          b2.addEventListener('click', function () {
+            mdl.splice(Z.num(b2.getAttribute('data-mddel')), 1);
+            gambarMdl();
+          });
+        });
+      }
+      ikatMdl();
+      const tmdl = Z.$('#setModelTambah', root);
+      if (tmdl) tmdl.addEventListener('click', function () {
+        if (mdl.length >= 40) return Z.toast('Maksimal 40 model.', 'err');
+        mdl.push({ n: '', m: '', t: 'Matic', a: 'beat', th: '', h: 0 });
+        gambarMdl();
+      });
+
+      /* ---------- Interval servis berkala ---------- */
+      let brkItem = berkalaItem();
+      function gambarBrk() {
+        const w = Z.$('#setBerkala', root);
+        if (!w) return;
+        w.innerHTML = berkalaBarisHtml(brkItem);
+        ikatBrk();
+      }
+      function ikatBrk() {
+        [['bknm', 'n', false], ['bkkm', 'km', true], ['bkhr', 'hari', true]].forEach(function (cfg) {
+          Z.$$('[data-' + cfg[0] + ']', root).forEach(function (i) {
+            i.addEventListener('input', function () {
+              brkItem[Z.num(i.getAttribute('data-' + cfg[0]))][cfg[1]] = cfg[2] ? Z.num(i.value) : i.value;
+            });
+          });
+        });
+        Z.$$('[data-bkdel]', root).forEach(function (b2) {
+          b2.addEventListener('click', function () {
+            if (brkItem.length <= 1) return Z.toast('Minimal satu item harus ada.', 'err');
+            brkItem.splice(Z.num(b2.getAttribute('data-bkdel')), 1);
+            gambarBrk();
+          });
+        });
+      }
+      ikatBrk();
+      const tbrk = Z.$('#setBerkalaTambah', root);
+      if (tbrk) tbrk.addEventListener('click', function () {
+        if (brkItem.length >= 12) return Z.toast('Maksimal 12 item.', 'err');
+        brkItem.push({ n: '', km: 0, hari: 0 });
+        gambarBrk();
+      });
+
+      /* ---------- Syarat & ketentuan ---------- */
+      let syarat = syaratTersimpan();
+      function gambarSyarat() {
+        const w = Z.$('#setSyarat', root);
+        if (!w) return;
+        w.innerHTML = syaratBlokHtml(syarat);
+        ikatSyarat();
+      }
+      function ikatSyarat() {
+        Z.$$('[data-skjudul]', root).forEach(function (i) {
+          i.addEventListener('input', function () { syarat[Z.num(i.getAttribute('data-skjudul'))].j = i.value; });
+        });
+        Z.$$('[data-skpoin]', root).forEach(function (t) {
+          const ix = t.getAttribute('data-skpoin').split('.');
+          t.addEventListener('input', function () {
+            syarat[Z.num(ix[0])].i[Z.num(ix[1])] = t.value;
+            t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px';
+          });
+          t.style.height = 'auto'; t.style.height = Math.max(34, t.scrollHeight) + 'px';
+        });
+        Z.$$('[data-skhapuspoin]', root).forEach(function (b2) {
+          b2.addEventListener('click', function () {
+            const ix = b2.getAttribute('data-skhapuspoin').split('.');
+            syarat[Z.num(ix[0])].i.splice(Z.num(ix[1]), 1);
+            gambarSyarat();
+          });
+        });
+        Z.$$('[data-sktambahpoin]', root).forEach(function (b2) {
+          b2.addEventListener('click', function () {
+            const k = Z.num(b2.getAttribute('data-sktambahpoin'));
+            if (syarat[k].i.length >= 20) return Z.toast('Maksimal 20 poin per blok.', 'err');
+            syarat[k].i.push('');
+            gambarSyarat();
+          });
+        });
+        Z.$$('[data-skhapusblok]', root).forEach(function (b2) {
+          b2.addEventListener('click', async function () {
+            const k = Z.num(b2.getAttribute('data-skhapusblok'));
+            const ya = await Z.konfirmasi({
+              judul: 'Hapus blok ketentuan?',
+              pesan: 'Blok "' + (syarat[k].j || 'tanpa judul') + '" beserta ' + syarat[k].i.length +
+                     ' poin di dalamnya akan dihapus.',
+              ya: 'Ya, hapus', bahaya: true
+            });
+            if (!ya) return;
+            syarat.splice(k, 1);
+            gambarSyarat();
+          });
+        });
+      }
+      ikatSyarat();
+      const tsk = Z.$('#setSyaratTambah', root);
+      if (tsk) tsk.addEventListener('click', function () {
+        if (syarat.length >= 12) return Z.toast('Maksimal 12 blok ketentuan.', 'err');
+        syarat.push({ j: '', i: [''] });
+        gambarSyarat();
+      });
+
       /* ---------- Pilihan status berkas penyewa ---------- */
       let berkas = Z.berkasOpsi();
       function gambarBerkas() {
@@ -1663,6 +1899,31 @@
         nilai.METODE_BAYAR_OPSI = JSON.stringify(
           bayar.map(function (x) { return String(x || '').trim(); })
                .filter(function (x, i, arr) { return x && arr.indexOf(x) === i; }));
+        // Model motor: baris tanpa nama dibuang, tipe & gambar dipertahankan
+        nilai.UNIT_TIPE_DAFTAR = JSON.stringify(mdl.map(function (x) {
+          return {
+            n: String(x.n || '').trim(), m: String(x.m || '').trim(),
+            t: String(x.t || 'Matic'), a: String(x.a || 'beat'),
+            th: String(x.th || '').trim(), h: Z.num(x.h)
+          };
+        }).filter(function (x) { return x.n; }));
+
+        // Servis berkala: item tanpa nama dibuang
+        const brkBersih = brkItem.map(function (x) {
+          return { n: String(x.n || '').trim(), km: Z.num(x.km), hari: Z.num(x.hari) };
+        }).filter(function (x) { return x.n; });
+        if (brkBersih.length) nilai.PERAWATAN_ITEM = JSON.stringify(brkBersih);
+        nilai.PERAWATAN_INGAT_KM = String(Z.num((Z.$('#setIngatKm', root) || {}).value));
+        nilai.PERAWATAN_INGAT_HARI = String(Z.num((Z.$('#setIngatHari', root) || {}).value));
+
+        // Syarat & ketentuan: blok tanpa judul DAN tanpa poin dibuang
+        nilai.PUBLIK_NAMA_UTUH = (Z.$('#setNamaUtuh', root) || {}).checked ? 'YA' : 'TIDAK';
+        const skBersih = syarat.map(function (x) {
+          return { j: String(x.j || '').trim(),
+                   i: (x.i || []).map(function (t) { return String(t || '').trim(); }).filter(String) };
+        }).filter(function (x) { return x.j || x.i.length; });
+        nilai.SYARAT_KETENTUAN = JSON.stringify(skBersih);
+
         // Kelengkapan berkas: sebutan + daftar pilihan statusnya
         const labelBerkas = (Z.$('#setBerkasLabel', root) || {}).value;
         nilai.BERKAS_LABEL = String(labelBerkas || '').trim() || 'Kelengkapan Berkas';
@@ -2139,14 +2400,851 @@
     });
   }
 
+  /* ================================================================
+   * GALERI IDENTITAS
+   * Kumpulan KTP dan identitas pendukung SELURUH penyewa dalam satu tempat,
+   * dengan riwayat order masing-masing. Yang ditampilkan adalah identitas
+   * terbaru milik penyewa; bukti per order ada di dalam riwayatnya, karena
+   * penyewa lama bisa memperbarui KTP atau mengganti identitas pendukung.
+   * ================================================================ */
+  Hal.identitas = {
+    judul: 'Galeri Identitas', nav: 'lainnya',
+
+    /** Satu baris per penyewa, diurutkan dari yang paling baru menyewa. */
+    kumpulkan: function () {
+      const ord = D().pesanan || [];
+      return (D().pelanggan || []).map(function (c) {
+        const milik = ord.filter(function (o) { return o.pelanggan === c.id; });
+        const terakhir = milik.map(function (o) { return String(o.mulai || ''); })
+          .sort().slice(-1)[0] || '';
+        return {
+          c: c, order: milik.length, terakhir: terakhir,
+          lengkap: !!(c.ktp && c.pendukung),
+          ada: !!(c.ktp || c.pendukung)
+        };
+      }).sort(function (a, b) {
+        return String(b.terakhir).localeCompare(String(a.terakhir)) ||
+               String(a.c.nama || '').localeCompare(String(b.c.nama || ''));
+      });
+    },
+
+    render: function () {
+      const semua = this.kumpulkan();
+      const f = Z.Simpan.ambil('idnFilter', 'ada');
+      const q = String(Z.Simpan.ambil('idnCari', '') || '').toLowerCase().trim();
+
+      const hitung = {
+        semua: semua.length,
+        ada: semua.filter(function (x) { return x.ada; }).length,
+        lengkap: semua.filter(function (x) { return x.lengkap; }).length,
+        kurang: semua.filter(function (x) { return !x.lengkap; }).length
+      };
+
+      let tampil = semua.filter(function (x) {
+        if (f === 'ada' && !x.ada) return false;
+        if (f === 'lengkap' && !x.lengkap) return false;
+        if (f === 'kurang' && x.lengkap) return false;
+        return true;
+      });
+      if (q) {
+        tampil = tampil.filter(function (x) {
+          return ((x.c.nama || '') + ' ' + (x.c.wa || '') + ' ' + (x.c.noKtp || '') + ' ' +
+                  (x.c.jenisPendukung || '')).toLowerCase().indexOf(q) >= 0;
+        });
+      }
+
+      let html = '<section><div class="seksi-head">' +
+        '<div style="display:flex;align-items:center;gap:9px;min-width:0">' +
+        '<button class="ikon-btn" data-nav="lainnya" aria-label="Kembali">' + Z.Ikon('panahKiri', 20) + '</button>' +
+        '<div style="min-width:0"><h1 class="t-judul">Galeri Identitas</h1>' +
+        '<div class="t-sm t-var">' + hitung.lengkap + ' penyewa lengkap 2 identitas, dari ' +
+        hitung.semua + ' penyewa</div></div></div></div></section>';
+
+      html += '<section class="grid2">' +
+        U.kartuKpi({ label: 'Lengkap 2 identitas', nilai: hitung.lengkap, ikon: 'perisai', warna: 'ok' }) +
+        U.kartuKpi({ label: 'Belum lengkap', nilai: hitung.kurang, ikon: 'alert', warna: 'warn' }) +
+        '</section>';
+
+      const chip = function (nilai, teks, jml) {
+        return '<button class="chip' + (f === nilai ? ' on' : '') + '" data-idnf="' + nilai + '">' +
+          esc(teks) + ' <span class="t-var">' + jml + '</span></button>';
+      };
+      html += '<section>' +
+        '<input class="inp" id="idnCari" placeholder="Cari nama, WA, atau nomor KTP…" value="' +
+          esc(Z.Simpan.ambil('idnCari', '')) + '">' +
+        '<div class="chips" style="margin-top:9px">' +
+          chip('ada', 'Ada gambar', hitung.ada) +
+          chip('lengkap', 'Lengkap', hitung.lengkap) +
+          chip('kurang', 'Belum lengkap', hitung.kurang) +
+          chip('semua', 'Semua penyewa', hitung.semua) +
+        '</div></section>';
+
+      if (!tampil.length) {
+        return html + '<section class="kartu">' + U.kosong('kartu', 'Tidak ada yang cocok',
+          'Gambar KTP dan identitas pendukung muncul di sini setelah diunggah ' +
+          'pada data pelanggan atau saat membuat order.') + '</section>';
+      }
+
+      html += '<section style="display:flex;flex-direction:column;gap:11px">' +
+        tampil.slice(0, 120).map(function (x) {
+          const c = x.c;
+          return '<article class="kartu gidn-kartu">' +
+            '<div class="gidn-kop">' +
+              U.avatar(c.nama) +
+              '<div style="flex:1;min-width:0">' +
+                '<b style="font-size:14px">' + esc(c.nama || c.id) + '</b>' +
+                '<div class="t-sm t-var">' +
+                  esc(Z.hpCantik(c.wa) || 'Nomor WA belum ada') +
+                  (c.noKtp ? ' · NIK ' + esc(c.noKtp) : '') + '</div>' +
+              '</div>' +
+              (x.lengkap ? U.badge('Lengkap', 'ok', 'perisai')
+                         : U.badge(c.ktp ? 'Tanpa pendukung' : 'Tanpa KTP', 'warn', 'alert')) +
+            '</div>' +
+            '<div class="gidn-isi">' +
+              P.miniIdn('KTP', c.ktp) +
+              P.miniIdn(c.jenisPendukung || 'Pendukung', c.pendukung) +
+            '</div>' +
+            '<div class="gidn-kaki">' +
+              '<span class="t-sm t-var">' + x.order + '× sewa' +
+                (x.terakhir ? ' · terakhir ' + esc(Z.tglPendek(x.terakhir)) : '') + '</span>' +
+              '<button class="btn btn-kecil btn-netral" data-gidn-riwayat="' + esc(c.id) + '">' +
+                Z.Ikon('jam', 14) + 'Riwayat order</button>' +
+            '</div>' +
+          '</article>';
+        }).join('') + '</section>';
+
+      if (tampil.length > 120) {
+        html += '<section><div class="t-sm t-var" style="text-align:center">Menampilkan 120 ' +
+          'penyewa pertama. Pakai pencarian untuk menemukan penyewa tertentu.</div></section>';
+      }
+      return html;
+    },
+
+    setelah: function (root) {
+      Z.$$('[data-idnf]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          Z.Simpan.taruh('idnFilter', b.getAttribute('data-idnf'));
+          global.App.render();
+        });
+      });
+      Z.$$('[data-gidn-riwayat]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          P.riwayatSewaPelanggan(b.getAttribute('data-gidn-riwayat'));
+        });
+      });
+      P.ikatLihatIdn(root);
+      const cari = Z.$('#idnCari', root);
+      if (cari) {
+        let jeda;
+        cari.addEventListener('input', function () {
+          clearTimeout(jeda);
+          jeda = setTimeout(function () {
+            Z.Simpan.taruh('idnCari', cari.value);
+            global.App.render();
+            const c2 = Z.$('#idnCari');
+            if (c2) { c2.focus(); c2.setSelectionRange(c2.value.length, c2.value.length); }
+          }, 260);
+        });
+      }
+    }
+  };
+
+  /* ================================================================
+   * PAPAN KETERSEDIAAN
+   * Satu kisi: unit ke bawah, tanggal ke samping — seperti papan kamar hotel.
+   * Menjawab "tanggal segini, motor mana yang masih kosong" tanpa membuka
+   * order satu per satu. Dirancang untuk 50+ unit: baris tetap ramping,
+   * kolom tanggal bisa digeser, dan unit bisa disaring per merek.
+   * ================================================================ */
+  Hal.papan = {
+    judul: 'Papan Ketersediaan', nav: 'lainnya',
+
+    /** Tanggal awal yang sedang ditampilkan. */
+    mulai: function () { return Z.Simpan.ambil('papanMulai', Z.hariIni()); },
+    /** Berapa hari ditampilkan sekaligus. */
+    rentang: function () { return Z.num(Z.Simpan.ambil('papanRentang', '14')) || 14; },
+
+    /**
+     * Keadaan satu unit pada satu tanggal.
+     * @returns {{k:string, label:string, order:string}} k: ready|booking|jalan|servis|mati
+     */
+    sel: function (u, t, idx) {
+      if (!u.aktif) return { k: 'mati', label: 'Nonaktif' };
+      const sv = idx.servis[u.id];
+      if (sv && sv.indexOf(t) >= 0) return { k: 'servis', label: 'Servis' };
+      if (u.status === 'Servis' && t === Z.hariIni()) return { k: 'servis', label: 'Di bengkel' };
+      /* Hari serah terima boleh dipakai dua order: yang lama kembali pagi, yang
+         baru berangkat setelahnya — itu memang diizinkan saat membuat order.
+         Kalau tanggal ini dipakai dua order, keduanya disebut supaya pemilik
+         tahu hari itu padat, bukan cuma melihat salah satunya. */
+      const pakai = (idx.order[u.id] || []).filter(function (x) {
+        return t >= x.mulai && t <= x.kembali;
+      });
+      if (pakai.length) {
+        const o = pakai.filter(function (x) { return x.mulai === t; })[0] || pakai[0];
+        if (pakai.length > 1) {
+          const keluar = pakai.filter(function (x) { return x.kembali === t; })[0];
+          const masuk = pakai.filter(function (x) { return x.mulai === t; })[0];
+          return {
+            k: 'tukar', label: 'Serah terima',
+            order: (masuk || o).id, nama: (masuk || o).nama,
+            sub: (keluar ? keluar.nama + ' kembali' : '') +
+                 (keluar && masuk ? ', ' : '') + (masuk ? masuk.nama + ' mulai' : '')
+          };
+        }
+        return { k: o.status === 'Booking' ? 'booking' : 'jalan',
+                 label: o.status === 'Booking' ? 'Booking' : 'Berjalan',
+                 order: o.id, nama: o.nama };
+      }
+      return { k: 'ready', label: 'Ready' };
+    },
+
+    render: function () {
+      const t0 = this.mulai(), n = this.rentang();
+      const hariIni = Z.hariIni();
+      const fMerek = Z.Simpan.ambil('papanMerek', 'semua');
+      const q = String(Z.Simpan.ambil('papanCari', '') || '').toLowerCase().trim();
+
+      const tanggal = [];
+      for (let i = 0; i < n; i++) tanggal.push(tambahHari(t0, i));
+      const tAkhir = tanggal[tanggal.length - 1];
+
+      /* Indeks sekali jalan: order & servis per unit. Tanpa ini, 50 unit x 14
+         hari berarti 700 kali menyapu seluruh daftar pesanan. */
+      const idx = { order: {}, servis: {} };
+      (D().pesanan || []).forEach(function (o) {
+        if (o.status === 'Batal' || o.status === 'Selesai') return;
+        if (!(o.mulai <= tAkhir && (o.kembali || o.mulai) >= t0)) return;
+        (idx.order[o.unit] = idx.order[o.unit] || []).push({
+          id: o.id, mulai: o.mulai, kembali: o.kembali || o.mulai,
+          status: o.status, nama: (pel(o.pelanggan).nama || '')
+        });
+      });
+      (D().servis || []).forEach(function (sv) {
+        [sv.tanggal, sv.next].forEach(function (t) {
+          if (t && t >= t0 && t <= tAkhir) (idx.servis[sv.unit] = idx.servis[sv.unit] || []).push(t);
+        });
+      });
+
+      let units = (D().units || []).slice();
+      const merekAda = {};
+      units.forEach(function (u) { if (u.merek) merekAda[u.merek] = 1; });
+      if (fMerek !== 'semua') units = units.filter(function (u) { return u.merek === fMerek; });
+      if (q) {
+        units = units.filter(function (u) {
+          return ((u.nama || '') + ' ' + (u.plat || '') + ' ' + (u.merek || '') + ' ' +
+                  (u.warna || '')).toLowerCase().indexOf(q) >= 0;
+        });
+      }
+      // Urut per merek lalu plat: unit sejenis berdekatan, yang membedakan
+      // hanya plat & warna — persis cara pemilik mengenalinya di garasi.
+      units.sort(function (a, b) {
+        return (a.merek || '').localeCompare(b.merek || '') ||
+               (a.nama || '').localeCompare(b.nama || '') ||
+               (a.plat || '').localeCompare(b.plat || '');
+      });
+
+      // Ringkasan untuk tanggal pertama yang ditampilkan
+      const hitung = { ready: 0, booking: 0, jalan: 0, servis: 0, mati: 0 };
+      const diri = this;
+      units.forEach(function (u) {
+        const k = diri.sel(u, t0, idx).k;
+        // Hari serah terima tetap bukan hari kosong, jadi dihitung sebagai booking
+        hitung[k === 'tukar' ? 'booking' : k]++;
+      });
+
+      let html = '<section><div class="seksi-head">' +
+        '<div style="display:flex;align-items:center;gap:9px;min-width:0">' +
+        '<button class="ikon-btn" data-nav="lainnya" aria-label="Kembali">' + Z.Ikon('panahKiri', 20) + '</button>' +
+        '<div style="min-width:0"><h1 class="t-judul">Papan Ketersediaan</h1>' +
+        '<div class="t-sm t-var">Motor mana yang kosong, tanggal berapa</div></div></div></div></section>';
+
+      /* ---------- Ringkasan hari pertama ---------- */
+      html += '<section class="pap-ring">' +
+        ringPapan('Ready', hitung.ready, 'ready') +
+        ringPapan('Booking', hitung.booking, 'booking') +
+        ringPapan('Berjalan', hitung.jalan, 'jalan') +
+        ringPapan('Servis', hitung.servis, 'servis') +
+        '</section>' +
+        '<div class="t-sm t-var" style="margin:-4px 0 2px">Angka di atas untuk <b>' +
+        esc(Z.tglPendek(t0)) + '</b>' + (t0 === hariIni ? ' (hari ini)' : '') + '.</div>';
+
+      /* ---------- Kendali ---------- */
+      html += '<section>' +
+        '<div class="pap-nav">' +
+          '<button class="ikon-btn" data-pap="-" aria-label="Mundur">' + Z.Ikon('panahKiri', 18) + '</button>' +
+          '<input class="inp" type="date" id="papTgl" value="' + esc(t0) + '">' +
+          '<button class="ikon-btn" data-pap="+" aria-label="Maju">' + Z.Ikon('panah', 18) + '</button>' +
+        '</div>' +
+        '<div class="chips" style="margin-top:8px">' +
+          [7, 14, 30].map(function (x) {
+            return '<button class="chip' + (n === x ? ' on' : '') + '" data-pap-rentang="' + x + '">' +
+              x + ' hari</button>';
+          }).join('') +
+          (t0 === hariIni ? '' : '<button class="chip" data-pap="0">Hari ini</button>') +
+        '</div>' +
+        '<input class="inp" id="papCari" style="margin-top:8px" placeholder="Cari plat, merek, atau warna…" ' +
+          'value="' + esc(Z.Simpan.ambil('papanCari', '')) + '">' +
+        (Object.keys(merekAda).length > 1
+          ? '<div class="chips" style="margin-top:8px">' +
+              '<button class="chip' + (fMerek === 'semua' ? ' on' : '') + '" data-pap-merek="semua">Semua merek</button>' +
+              Object.keys(merekAda).sort().map(function (m) {
+                return '<button class="chip' + (fMerek === m ? ' on' : '') + '" data-pap-merek="' +
+                  esc(m) + '">' + esc(m) + '</button>';
+              }).join('') +
+            '</div>'
+          : '') +
+      '</section>';
+
+      if (!units.length) {
+        return html + '<section class="kartu">' + U.kosong('motor', 'Tidak ada unit',
+          q ? 'Tidak ada unit yang cocok dengan pencarian itu.' : 'Belum ada armada terdaftar.') + '</section>';
+      }
+
+      /* ---------- Kisi ---------- */
+      html += '<section class="kartu kartu-rapat">' +
+        '<div class="pap-gulir"><table class="pap-tabel">' +
+        '<thead><tr><th class="pap-unit-h">Unit</th>' +
+          tanggal.map(function (t) {
+            const w = Z.hariSingkat(t);
+            return '<th class="pap-tgl' + (t === hariIni ? ' ini' : '') + '">' +
+              '<span class="pap-hari">' + esc(w) + '</span>' +
+              '<span class="pap-angka">' + Number(t.slice(8, 10)) + '</span></th>';
+          }).join('') + '</tr></thead><tbody>' +
+        units.map(function (u) {
+          return '<tr>' +
+            '<th class="pap-unit" data-pap-unit="' + esc(u.id) + '">' +
+              '<span class="pap-plat">' + esc(u.plat || u.id) + '</span>' +
+              '<span class="pap-nama">' + esc(u.nama || '') +
+                (u.warna ? ' · ' + esc(u.warna) : '') + '</span>' +
+            '</th>' +
+            tanggal.map(function (t) {
+              const c = diri.sel(u, t, idx);
+              return '<td class="pap-sel s-' + c.k + (t === hariIni ? ' ini' : '') + '"' +
+                (c.order ? ' data-pap-order="' + esc(c.order) + '"' : '') +
+                ' title="' + esc(u.plat + ' • ' + Z.tglPendek(t) + ' • ' + c.label +
+                  (c.sub ? ': ' + c.sub : (c.nama ? ' (' + c.nama + ')' : ''))) + '"></td>';
+            }).join('') +
+          '</tr>';
+        }).join('') +
+        '</tbody></table></div>' +
+        '<div class="pap-legenda">' +
+          [['ready', 'Ready'], ['booking', 'Booking'], ['jalan', 'Berjalan'],
+           ['tukar', 'Serah terima'], ['servis', 'Servis'], ['mati', 'Nonaktif']].map(function (x) {
+            return '<span><i class="pap-kotak s-' + x[0] + '"></i>' + x[1] + '</span>';
+          }).join('') +
+        '</div>' +
+        '<div class="t-sm t-var" style="margin-top:7px">Ketuk kotak berwarna untuk membuka ordernya, ' +
+        'atau ketuk plat untuk melihat riwayat unit.</div>' +
+      '</section>';
+
+      return html;
+    },
+
+    setelah: function (root) {
+      const diri = this;
+      Z.$$('[data-pap]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          const a = b.getAttribute('data-pap');
+          const t = a === '0' ? Z.hariIni()
+                  : tambahHari(diri.mulai(), a === '+' ? diri.rentang() : -diri.rentang());
+          Z.Simpan.taruh('papanMulai', t);
+          global.App.render();
+        });
+      });
+      const tg = Z.$('#papTgl', root);
+      if (tg) tg.addEventListener('change', function () {
+        Z.Simpan.taruh('papanMulai', tg.value || Z.hariIni());
+        global.App.render();
+      });
+      Z.$$('[data-pap-rentang]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          Z.Simpan.taruh('papanRentang', b.getAttribute('data-pap-rentang'));
+          global.App.render();
+        });
+      });
+      Z.$$('[data-pap-merek]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          Z.Simpan.taruh('papanMerek', b.getAttribute('data-pap-merek'));
+          global.App.render();
+        });
+      });
+      const cari = Z.$('#papCari', root);
+      if (cari) {
+        let jeda;
+        cari.addEventListener('input', function () {
+          clearTimeout(jeda);
+          jeda = setTimeout(function () {
+            Z.Simpan.taruh('papanCari', cari.value);
+            global.App.render();
+            const c2 = Z.$('#papCari');
+            if (c2) { c2.focus(); c2.setSelectionRange(c2.value.length, c2.value.length); }
+          }, 260);
+        });
+      }
+      Z.$$('[data-pap-order]', root).forEach(function (el) {
+        el.addEventListener('click', function () { Hal.detailOrder(el.getAttribute('data-pap-order')); });
+      });
+      Z.$$('[data-pap-unit]', root).forEach(function (el) {
+        el.addEventListener('click', function () {
+          Z.Simpan.taruh('unitRiwayat', el.getAttribute('data-pap-unit'));
+          location.hash = '#/unit';
+        });
+      });
+    }
+  };
+
+  function ringPapan(label, nilai, kelas) {
+    return '<div class="pap-ring-i s-' + kelas + '"><b>' + nilai + '</b><span>' + esc(label) + '</span></div>';
+  }
+
+  function tambahHari(t, n) {
+    const a = String(t).split('-');
+    const d = new Date(Number(a[0]), Number(a[1]) - 1, Number(a[2]) + n);
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
+
+  /* ================================================================
+   * RIWAYAT UNIT
+   * Satu motor, satu halaman: siapa saja yang pernah menyewanya, dan apa
+   * saja yang pernah dikerjakan padanya. Satu model bisa punya beberapa
+   * unit yang hanya beda plat dan warna, jadi halaman ini selalu dikunci
+   * ke SATU plat, bukan ke nama model.
+   * ================================================================ */
+  Hal.unit = {
+    judul: 'Riwayat Unit', nav: 'armada',
+
+    pilih: function () { return Z.Simpan.ambil('unitRiwayat', ''); },
+
+    render: function () {
+      const id = this.pilih();
+      const u = id ? unit(id) : null;
+
+      if (!u || !u.id) {
+        const daftar = (D().units || []).slice().sort(function (a, b) {
+          return (a.merek || '').localeCompare(b.merek || '') || (a.plat || '').localeCompare(b.plat || '');
+        });
+        return '<section><div class="seksi-head">' +
+          '<div style="display:flex;align-items:center;gap:9px;min-width:0">' +
+          '<button class="ikon-btn" data-nav="armada" aria-label="Kembali">' + Z.Ikon('panahKiri', 20) + '</button>' +
+          '<div><h1 class="t-judul">Riwayat Unit</h1>' +
+          '<div class="t-sm t-var">Pilih motor untuk melihat riwayatnya</div></div></div></div></section>' +
+          '<section style="display:flex;flex-direction:column;gap:8px">' +
+          daftar.map(function (x) {
+            return '<button class="kotak unit-pilih-baris" data-unit-riwayat="' + esc(x.id) + '">' +
+              '<div style="min-width:0;flex:1;text-align:left">' +
+                '<div style="font-weight:700;font-size:13px">' + esc(x.plat || x.id) + '</div>' +
+                '<div class="t-sm t-var">' + esc(x.nama || '') +
+                  (x.warna ? ' · ' + esc(x.warna) : '') + '</div>' +
+              '</div>' + U.badge(x.status, x.status === 'Tersedia' ? 'ok' : 'netral') + '</button>';
+          }).join('') + '</section>';
+      }
+
+      const order = (D().pesanan || []).filter(function (o) { return o.unit === u.id; })
+        .sort(function (a, b) { return String(b.mulai).localeCompare(String(a.mulai)); });
+      const srv = (D().servis || []).filter(function (x) { return x.unit === u.id; })
+        .sort(function (a, b) { return String(b.tanggal).localeCompare(String(a.tanggal)); });
+      const rwt = (D().perawatan || []).filter(function (x) { return x.unit === u.id; })
+        .sort(function (a, b) { return String(b.tanggal).localeCompare(String(a.tanggal)); });
+
+      const selesai = order.filter(function (o) { return o.status === 'Selesai'; });
+      const hasil = order.reduce(function (a, o) { return a + Z.num(o.dibayar); }, 0);
+      const biaya = srv.reduce(function (a, x) { return a + Z.num(x.biaya); }, 0) +
+                    rwt.reduce(function (a, x) { return a + Z.num(x.biaya); }, 0);
+      const hari = order.reduce(function (a, o) { return a + Z.num(o.durasi); }, 0);
+      const penyewa = {};
+      order.forEach(function (o) { if (o.pelanggan) penyewa[o.pelanggan] = (penyewa[o.pelanggan] || 0) + 1; });
+
+      let html = '<section><div class="seksi-head">' +
+        '<div style="display:flex;align-items:center;gap:9px;min-width:0">' +
+        '<button class="ikon-btn" data-unit-riwayat="" aria-label="Ganti unit">' + Z.Ikon('panahKiri', 20) + '</button>' +
+        '<div style="min-width:0"><h1 class="t-judul">' + esc(u.plat || u.id) + '</h1>' +
+        '<div class="t-sm t-var">' + esc(u.nama || '') + (u.warna ? ' · ' + esc(u.warna) : '') +
+        (u.tahun ? ' · ' + u.tahun : '') + '</div></div></div>' +
+        U.badge(u.status, u.status === 'Tersedia' ? 'ok' : 'netral') + '</div></section>';
+
+      html += '<section class="grid2">' +
+        P.pilCounter('Total disewa', order.length + '×', '') +
+        P.pilCounter('Hari terpakai', hari, '') +
+        P.pilCounter('Pemasukan', Z.rpSingkat(hasil), '') +
+        P.pilCounter('Biaya perawatan', Z.rpSingkat(biaya), '') +
+      '</section>';
+
+      /* ---------- Siapa saja yang menyewa ---------- */
+      html += '<section><h3 class="t-seksi">Riwayat Penyewa <span class="t-var">(' + order.length + ')</span></h3>' +
+        (order.length
+          ? '<div style="display:flex;flex-direction:column;gap:8px">' +
+            order.slice(0, 40).map(function (o) {
+              const c = pel(o.pelanggan);
+              return '<article class="kartu kartu-rapat kartu-klik" data-order="' + esc(o.id) + '">' +
+                '<div style="display:flex;align-items:center;gap:10px">' +
+                  U.avatar(c.nama || '?') +
+                  '<div style="flex:1;min-width:0">' +
+                    '<div style="font-weight:700;font-size:12.5px;overflow:hidden;' +
+                      'text-overflow:ellipsis;white-space:nowrap">' + esc(c.nama || 'Tanpa nama') + '</div>' +
+                    '<div class="t-sm t-var">' + esc(Z.tglPendek(o.mulai)) + ' → ' +
+                      esc(Z.tglPendek(o.kembali)) + ' · ' + o.durasi + ' hari</div>' +
+                  '</div>' +
+                  '<div style="text-align:right;flex:none">' +
+                    U.badge(o.status, o.status === 'Selesai' ? 'ok' :
+                      (o.status === 'Batal' ? 'netral' : 'info')) +
+                    '<div class="t-sm" style="font-weight:700;margin-top:3px">' + Z.rp(o.total) + '</div>' +
+                  '</div>' +
+                '</div></article>';
+            }).join('') +
+            (order.length > 40 ? '<div class="t-sm t-var" style="text-align:center">Menampilkan 40 terbaru dari ' +
+              order.length + '.</div>' : '') +
+            '</div>'
+          : '<div class="kartu">' + U.kosong('order', 'Belum pernah disewa',
+              'Unit ini belum punya riwayat sewa.') + '</div>') +
+      '</section>';
+
+      /* ---------- Riwayat servis ---------- */
+      html += '<section><h3 class="t-seksi">Riwayat Servis <span class="t-var">(' +
+        (srv.length + rwt.length) + ')</span></h3>' +
+        ((srv.length + rwt.length)
+          ? '<div style="display:flex;flex-direction:column;gap:8px">' +
+            srv.map(function (x) {
+              return '<article class="kartu kartu-rapat">' +
+                '<div style="display:flex;align-items:center;gap:10px">' +
+                  '<span class="kpi-ikon">' + Z.Ikon('perkakas', 16) + '</span>' +
+                  '<div style="flex:1;min-width:0">' +
+                    '<div style="font-weight:600;font-size:12.5px">' + esc(x.jenis || 'Servis') + '</div>' +
+                    '<div class="t-sm t-var">' + esc(Z.tglPendek(x.tanggal)) +
+                      (x.bengkel ? ' · ' + esc(x.bengkel) : '') +
+                      (x.odo ? ' · ' + Z.ribuan(x.odo) + ' km' : '') + '</div>' +
+                  '</div>' +
+                  '<b class="t-sm" style="flex:none">' + Z.rp(x.biaya) + '</b>' +
+                '</div></article>';
+            }).join('') +
+            rwt.map(function (x) {
+              return '<article class="kartu kartu-rapat">' +
+                '<div style="display:flex;align-items:center;gap:10px">' +
+                  '<span class="kpi-ikon">' + Z.Ikon('tetes', 16) + '</span>' +
+                  '<div style="flex:1;min-width:0">' +
+                    '<div style="font-weight:600;font-size:12.5px">' + esc(x.item) + '</div>' +
+                    '<div class="t-sm t-var">' + esc(Z.tglPendek(x.tanggal)) +
+                      (x.odo ? ' · ' + Z.ribuan(x.odo) + ' km' : '') +
+                      (x.bengkel ? ' · ' + esc(x.bengkel) : '') + '</div>' +
+                  '</div>' +
+                  '<b class="t-sm" style="flex:none">' + (x.biaya ? Z.rp(x.biaya) : '—') + '</b>' +
+                '</div></article>';
+            }).join('') + '</div>'
+          : '<div class="kartu">' + U.kosong('perkakas', 'Belum ada servis',
+              'Belum ada catatan perawatan untuk unit ini.') + '</div>') +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:9px" ' +
+          'data-unit-servis="' + esc(u.id) + '">' + Z.Ikon('plus', 15) + 'Catat servis unit ini</button>' +
+        '<button class="btn btn-netral btn-blok btn-kecil" style="margin-top:7px" ' +
+          'data-unit-berkala="' + esc(u.id) + '">' + Z.Ikon('tetes', 15) + 'Buka servis berkala</button>' +
+      '</section>';
+
+      return html;
+    },
+
+    setelah: function (root) {
+      Z.$$('[data-unit-riwayat]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          Z.Simpan.taruh('unitRiwayat', b.getAttribute('data-unit-riwayat') || '');
+          global.App.render();
+        });
+      });
+      Z.$$('[data-order]', root).forEach(function (el) {
+        el.addEventListener('click', function () { Hal.detailOrder(el.getAttribute('data-order')); });
+      });
+      const sv = Z.$('[data-unit-servis]', root);
+      if (sv) sv.addEventListener('click', function () { Hal.servis.form(sv.getAttribute('data-unit-servis')); });
+      const bk = Z.$('[data-unit-berkala]', root);
+      if (bk) bk.addEventListener('click', function () {
+        Z.Simpan.taruh('berkalaUnit', bk.getAttribute('data-unit-berkala'));
+        location.hash = '#/berkala';
+      });
+    }
+  };
+
+  /* ================================================================
+   * SERVIS BERKALA
+   * Menggantikan catatan manual per plat:
+   *   P 2596 RK | BEAT 2018
+   *   Oli mesin : 30-10-26 (95.284km)
+   * Tiap item punya interval km dan/atau hari; aplikasi menghitung sendiri
+   * kapan jatuh temponya dan mengingatkan sebelum lewat.
+   * ================================================================ */
+
+  /** Item berkala + interval, diatur pemilik di Pengaturan. */
+  function berkalaItem() {
+    try {
+      const a = JSON.parse(global.App.set('PERAWATAN_ITEM', '[]') || '[]');
+      if (Array.isArray(a) && a.length) {
+        return a.map(function (x) {
+          return { n: String((x && x.n) || ''), km: Z.num(x && x.km), hari: Z.num(x && x.hari) };
+        }).filter(function (x) { return x.n; });
+      }
+    } catch (e) {}
+    return [{ n: 'Oli Mesin', km: 2000, hari: 60 }];
+  }
+
+  /**
+   * Status satu item pada satu unit.
+   * @returns {{item, km, hari, catatan, sisaKm, sisaHari, tingkat, pesan}}
+   *   tingkat: 'belum' | 'aman' | 'segera' | 'lewat'
+   */
+  function berkalaStatus(u, item, catatan) {
+    const ingatKm = Z.num(global.App.set('PERAWATAN_INGAT_KM', '300')) || 300;
+    const ingatHari = Z.num(global.App.set('PERAWATAN_INGAT_HARI', '7')) || 7;
+    const akhir = (catatan || []).filter(function (x) { return x.item === item.n; })
+      .sort(function (a, b) { return String(b.tanggal).localeCompare(String(a.tanggal)); })[0];
+
+    if (!akhir) {
+      return { item: item, catatan: null, tingkat: 'belum', pesan: 'Belum pernah dicatat' };
+    }
+    let sisaKm = null, sisaHari = null;
+    if (item.km > 0 && akhir.odo > 0 && Z.num(u.odo) > 0) {
+      sisaKm = (Z.num(akhir.odo) + item.km) - Z.num(u.odo);
+    }
+    if (item.hari > 0 && akhir.tanggal) {
+      sisaHari = Math.round((new Date(akhir.tanggal + 'T00:00:00') - new Date(Z.hariIni() + 'T00:00:00'))
+        / 864e5) + item.hari;
+    }
+    const lewat = (sisaKm !== null && sisaKm < 0) || (sisaHari !== null && sisaHari < 0);
+    const segera = !lewat && ((sisaKm !== null && sisaKm <= ingatKm) ||
+                              (sisaHari !== null && sisaHari <= ingatHari));
+    const bagian = [];
+    if (sisaKm !== null) bagian.push(sisaKm < 0 ? 'lewat ' + Z.ribuan(-sisaKm) + ' km'
+                                                : 'sisa ' + Z.ribuan(sisaKm) + ' km');
+    if (sisaHari !== null) bagian.push(sisaHari < 0 ? 'lewat ' + (-sisaHari) + ' hari'
+                                                    : 'sisa ' + sisaHari + ' hari');
+    return {
+      item: item, catatan: akhir, sisaKm: sisaKm, sisaHari: sisaHari,
+      tingkat: lewat ? 'lewat' : (segera ? 'segera' : 'aman'),
+      pesan: bagian.join(' · ') || 'Tidak ada interval'
+    };
+  }
+
+  /** Semua item yang sudah jatuh tempo / hampir, di seluruh armada. */
+  function berkalaPerluPerhatian() {
+    const items = berkalaItem();
+    const rwt = D().perawatan || [];
+    const out = [];
+    (D().units || []).forEach(function (u) {
+      if (!u.aktif) return;
+      const milik = rwt.filter(function (x) { return x.unit === u.id; });
+      items.forEach(function (it) {
+        const st = berkalaStatus(u, it, milik);
+        if (st.tingkat === 'lewat' || st.tingkat === 'segera') out.push({ u: u, st: st });
+      });
+    });
+    return out.sort(function (a, b) {
+      const w = { lewat: 0, segera: 1 };
+      return w[a.st.tingkat] - w[b.st.tingkat];
+    });
+  }
+
+  H.berkalaPerlu = berkalaPerluPerhatian;
+
+  Hal.berkala = {
+    judul: 'Servis Berkala', nav: 'lainnya',
+
+    render: function () {
+      const items = berkalaItem();
+      const rwt = D().perawatan || [];
+      const fokus = Z.Simpan.ambil('berkalaUnit', '');
+      const q = String(Z.Simpan.ambil('berkalaCari', '') || '').toLowerCase().trim();
+      const perlu = berkalaPerluPerhatian();
+
+      const saring = Z.Simpan.ambil('berkalaSaring', 'semua');
+      let units = (D().units || []).filter(function (u) { return u.aktif; });
+      const semuaAktif = units.length;
+      if (fokus) units = units.filter(function (u) { return u.id === fokus; });
+      if (!fokus && saring === 'perlu') {
+        // 50+ motor x 6 item terlalu panjang untuk dibaca sekaligus; saringan ini
+        // menyisakan motor yang benar-benar menunggu dikerjakan.
+        const ada = {};
+        perlu.forEach(function (x) { ada[x.u.id] = 1; });
+        units = units.filter(function (u) { return ada[u.id]; });
+      }
+      if (q) {
+        units = units.filter(function (u) {
+          return ((u.nama || '') + ' ' + (u.plat || '') + ' ' + (u.merek || '')).toLowerCase().indexOf(q) >= 0;
+        });
+      }
+      units.sort(function (a, b) {
+        return (a.merek || '').localeCompare(b.merek || '') || (a.plat || '').localeCompare(b.plat || '');
+      });
+
+      let html = '<section><div class="seksi-head">' +
+        '<div style="display:flex;align-items:center;gap:9px;min-width:0">' +
+        '<button class="ikon-btn" data-nav="lainnya" aria-label="Kembali">' + Z.Ikon('panahKiri', 20) + '</button>' +
+        '<div style="min-width:0"><h1 class="t-judul">Servis Berkala</h1>' +
+        '<div class="t-sm t-var">Oli, gardan, CVT, filter, kampas — per motor</div></div></div></div></section>';
+
+      /* ---------- Yang perlu dikerjakan ---------- */
+      if (perlu.length) {
+        html += '<section class="kartu"><h3 class="t-judul" style="font-size:15px">' +
+          Z.Ikon('alert', 16) + ' Perlu dikerjakan <span class="t-var">(' + perlu.length + ')</span></h3>' +
+          '<div style="display:flex;flex-direction:column;gap:7px;margin-top:9px">' +
+          perlu.slice(0, 12).map(function (x) {
+            return '<button class="brk-perlu t-' + x.st.tingkat + '" data-brk-fokus="' + esc(x.u.id) + '">' +
+              '<div style="min-width:0;flex:1;text-align:left">' +
+                '<div class="brk-perlu-j">' + esc(x.u.plat || x.u.id) + ' · ' + esc(x.st.item.n) + '</div>' +
+                '<div class="brk-perlu-s">' + esc(x.st.pesan) + '</div>' +
+              '</div>' +
+              '<span class="badge badge-' + (x.st.tingkat === 'lewat' ? 'danger' : 'warn') + '">' +
+                (x.st.tingkat === 'lewat' ? 'Lewat' : 'Segera') + '</span></button>';
+          }).join('') +
+          (perlu.length > 12 ? '<div class="t-sm t-var">dan ' + (perlu.length - 12) + ' lainnya…</div>' : '') +
+          '</div></section>';
+      }
+
+      /* ---------- Kendali ---------- */
+      const perluUnit = {};
+      perlu.forEach(function (x) { perluUnit[x.u.id] = 1; });
+      html += '<section>' +
+        (fokus
+          ? '<button class="btn btn-netral btn-blok btn-kecil" data-brk-fokus="">' +
+            Z.Ikon('x', 15) + 'Tampilkan semua unit</button>'
+          : '<input class="inp" id="brkCari" placeholder="Cari plat atau merek…" value="' +
+            esc(Z.Simpan.ambil('berkalaCari', '')) + '">' +
+            '<div class="chips" style="margin-top:8px">' +
+              '<button class="chip' + (saring === 'semua' ? ' on' : '') + '" data-brk-saring="semua">' +
+                'Semua unit <span class="t-var">' + semuaAktif + '</span></button>' +
+              '<button class="chip' + (saring === 'perlu' ? ' on' : '') + '" data-brk-saring="perlu">' +
+                'Perlu dikerjakan <span class="t-var">' + Object.keys(perluUnit).length + '</span></button>' +
+            '</div>') +
+      '</section>';
+
+      if (!units.length) {
+        return html + '<section class="kartu">' + U.kosong('motor',
+          saring === 'perlu' ? 'Semua terjadwal rapi' : 'Tidak ada unit',
+          saring === 'perlu'
+            ? 'Tidak ada motor yang sedang menunggu servis berkala.'
+            : 'Tidak ada unit yang cocok.') + '</section>';
+      }
+
+      /* ---------- Kartu per unit ---------- */
+      html += units.slice(0, 60).map(function (u) {
+        const milik = rwt.filter(function (x) { return x.unit === u.id; });
+        return '<section class="kartu"><div class="brk-kop">' +
+            '<div style="min-width:0">' +
+              '<div class="brk-plat">' + esc(u.plat || u.id) + '</div>' +
+              '<div class="t-sm t-var">' + esc(u.nama || '') +
+                (u.tahun ? ' ' + u.tahun : '') +
+                (Z.num(u.odo) ? ' · ' + Z.ribuan(u.odo) + ' km' : '') + '</div>' +
+            '</div>' +
+            '<button class="btn btn-netral btn-kecil" data-brk-catat="' + esc(u.id) + '">' +
+              Z.Ikon('plus', 14) + 'Catat</button>' +
+          '</div>' +
+          '<div class="brk-item">' +
+            items.map(function (it) {
+              const st = berkalaStatus(u, it, milik);
+              return '<div class="brk-baris t-' + st.tingkat + '">' +
+                '<span class="brk-nama">' + esc(it.n) + '</span>' +
+                '<span class="brk-isi">' +
+                  (st.catatan
+                    ? esc(Z.tglPendek(st.catatan.tanggal)) +
+                      (st.catatan.odo ? ' <span class="t-var">(' + Z.ribuan(st.catatan.odo) + ' km)</span>' : '')
+                    : '<span class="t-var">—</span>') +
+                '</span>' +
+                '<span class="brk-sisa">' + esc(st.tingkat === 'belum' ? '' : st.pesan) + '</span>' +
+              '</div>';
+            }).join('') +
+          '</div></section>';
+      }).join('');
+
+      if (units.length > 60) {
+        html += '<section><div class="t-sm t-var" style="text-align:center">Menampilkan 60 unit pertama. ' +
+          'Pakai pencarian untuk menemukan unit tertentu.</div></section>';
+      }
+      return html;
+    },
+
+    setelah: function (root) {
+      Z.$$('[data-brk-fokus]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          Z.Simpan.taruh('berkalaUnit', b.getAttribute('data-brk-fokus') || '');
+          global.App.render();
+        });
+      });
+      Z.$$('[data-brk-saring]', root).forEach(function (b) {
+        b.addEventListener('click', function () {
+          Z.Simpan.taruh('berkalaSaring', b.getAttribute('data-brk-saring'));
+          global.App.render();
+        });
+      });
+      Z.$$('[data-brk-catat]', root).forEach(function (b) {
+        b.addEventListener('click', function () { formBerkala(b.getAttribute('data-brk-catat')); });
+      });
+      const cari = Z.$('#brkCari', root);
+      if (cari) {
+        let jeda;
+        cari.addEventListener('input', function () {
+          clearTimeout(jeda);
+          jeda = setTimeout(function () {
+            Z.Simpan.taruh('berkalaCari', cari.value);
+            global.App.render();
+            const c2 = Z.$('#brkCari');
+            if (c2) { c2.focus(); c2.setSelectionRange(c2.value.length, c2.value.length); }
+          }, 260);
+        });
+      }
+    }
+  };
+
+  /** Form catat satu item berkala. */
+  function formBerkala(unitId) {
+    const u = unit(unitId);
+    const items = berkalaItem();
+    const wrap = Z.Sheet.buka({
+      judul: 'Catat Servis Berkala', ikon: 'tetes',
+      isi: '<div class="kotak" style="margin-bottom:11px">' +
+          '<b style="font-size:13px">' + esc(u.plat || unitId) + '</b>' +
+          '<div class="t-sm t-var">' + esc(u.nama || '') +
+            (Z.num(u.odo) ? ' · odometer kini ' + Z.ribuan(u.odo) + ' km' : '') + '</div></div>' +
+        '<div class="field"><label>Item yang diganti</label>' +
+          '<select class="sel" data-b="item">' +
+          items.map(function (i) { return '<option>' + esc(i.n) + '</option>'; }).join('') +
+          '</select></div>' +
+        '<div class="grid2">' +
+          '<div class="field"><label>Tanggal</label><input class="inp" type="date" data-b="tanggal" value="' +
+            Z.hariIni() + '"></div>' +
+          '<div class="field"><label>Odometer (km)</label><input class="inp" type="number" data-b="odo" value="' +
+            Z.num(u.odo) + '" inputmode="numeric"></div>' +
+        '</div>' +
+        '<div class="grid2">' +
+          '<div class="field"><label>Biaya</label><div class="inp-rp"><span>Rp</span>' +
+            '<input type="number" data-b="biaya" value="0" step="5000"></div></div>' +
+          '<div class="field"><label>Bengkel</label><input class="inp" data-b="bengkel" placeholder="AHASS / bengkel langganan"></div>' +
+        '</div>' +
+        '<div class="field" style="margin-bottom:0"><label>Catatan</label>' +
+          '<input class="inp" data-b="catatan" maxlength="140" placeholder="Opsional"></div>' +
+        '<div class="bantu" style="margin-top:8px">Biaya di atas 0 otomatis tercatat sebagai pengeluaran ' +
+        'di Keuangan, dan odometer unit ikut diperbarui.</div>',
+      aksi: '<button class="btn btn-netral" data-batal>Batal</button>' +
+            '<button class="btn btn-utama" data-simpan>' + Z.Ikon('check', 17) + 'Simpan</button>'
+    });
+    Z.$('[data-batal]', wrap).addEventListener('click', function () { Z.Sheet.tutup(); });
+    Z.$('[data-simpan]', wrap).addEventListener('click', async function () {
+      const d = { unit: unitId };
+      Z.$$('[data-b]', wrap).forEach(function (i) { d[i.getAttribute('data-b')] = i.value; });
+      const r = await global.App.kirim('perawatan.simpan', d);
+      if (!r.success) return;
+      Z.Sheet.tutup();
+      await global.App.muatUlang(true);
+      global.App.render();
+    });
+  }
+
   Hal.lainnya = {
     judul: 'Lainnya', nav: 'lainnya',
     render: function () {
       const menu = [
         ['keuangan', 'dompet', 'Keuangan & Arus Kas', 'Pemasukan, pengeluaran, laba bersih'],
         ['servis', 'perkakas', 'Servis & Pajak', 'Riwayat servis dan jatuh tempo STNK'],
+        ['papan', 'kisi', 'Papan Ketersediaan', 'Motor mana yang kosong, tanggal berapa'],
+        ['unit', 'motor', 'Riwayat Unit', 'Penyewa & servis tiap motor'],
+        ['berkala', 'tetes', 'Servis Berkala', 'Oli, gardan, CVT, filter, kampas'],
         ['kalender', 'kalender', 'Kalender Penyewa', 'Lihat siapa yang menyewa di bulan ini'],
         ['galeri', 'kamera', 'Galeri Foto', 'Semua bukti serah terima & pengembalian'],
+        ['identitas', 'kartu', 'Galeri Identitas', 'KTP & identitas pendukung semua penyewa'],
         ['laporan', 'grafik', 'Laporan', 'Statistik bulanan, PDF & Excel'],
         ['notifikasi', 'wa', 'WhatsApp & Notifikasi', 'Template pesan, blast, antrean'],
         ['struk', 'cetak', 'Model Struk & Printer', 'Atur tata letak struk thermal 58/80 mm'],
@@ -2507,7 +3605,16 @@
               ? '<button class="btn btn-netral btn-blok" data-k="fotoKembali">' + Z.Ikon('kamera', 16) +
                 'Foto Kondisi Saat Kembali</button>' : '') : '') +
         (s === 'Booking'
-          ? '<button class="btn btn-utama btn-blok" data-k="mulai">' + Z.Ikon('kunci', 17) + 'Serah Terima & Mulai Sewa</button>' : '') +
+          ? '<button class="btn btn-utama btn-blok" data-k="mulai">' + Z.Ikon('kunci', 17) + 'Serah Terima & Mulai Sewa</button>' +
+            /* Jalur cepat tanpa foto: linimasa kwitansi hanya mencentang
+               kejadian yang benar-benar ditandai, jadi pengelola yang tidak
+               memakai foto tetap butuh cara mencatat penyerahan. */
+            '<button class="btn btn-netral btn-blok btn-kecil" data-k="tandaiSerah">' +
+            Z.Ikon('check', 15) + 'Tandai sudah diserahkan (tanpa foto)</button>'
+          : '') +
+        (!o.serahPada && !adaFotoSerah(o) && (s === 'Berjalan' || s === 'Terlambat')
+          ? '<button class="btn btn-netral btn-blok btn-kecil" data-k="tandaiSerah">' +
+            Z.Ikon('check', 15) + 'Tandai sudah diserahkan (tanpa foto)</button>' : '') +
         /* Sewa yang sudah jalan tetap butuh jalan masuk ke form foto serah
            terima: order yang dimulai sebelum fitur ini ada, atau yang fotonya
            sempat dilewati, kalau tidak akan terkunci tanpa bukti selamanya.
@@ -2521,6 +3628,9 @@
             'Lengkapi Foto Pengembalian</button>' : '') +
         '<button class="btn btn-netral btn-blok" data-k="tautan">' + Z.Ikon('tautan', 16) +
         'Salin Tautan Kwitansi</button>' +
+
+        /* Ringkasan tahapan di sisi pengelola, cerminan linimasa kwitansi. */
+        tahapOrder(o, s) +
         '<div class="btn-grid">' +
           '<button class="btn btn-netral" data-k="ubah">' + Z.Ikon('pensil', 16) + 'Ubah Order</button>' +
           (s !== 'Selesai' && s !== 'Batal'
@@ -2557,6 +3667,19 @@
         if (k === 'perpanjang') { Z.Sheet.tutup(); setTimeout(function () { formPerpanjang(o); }, 240); return; }
         if (k === 'bayar') { Z.Sheet.tutup(); setTimeout(function () { formBayar(o); }, 240); return; }
         if (k === 'mulai')  { Z.Sheet.tutup(); setTimeout(function () { formFotoSerah(o, 'serah'); }, 240); return; }
+        if (k === 'tandaiSerah') {
+          const ya = await Z.konfirmasi({
+            judul: 'Tandai sudah diserahkan?',
+            pesan: 'Unit ' + (unit(o.unit).nama || o.unit) + ' dicatat sudah diserahkan ke ' +
+                   (pel(o.pelanggan).nama || 'penyewa') + ' sekarang. Tahap ini akan tercentang di ' +
+                   'kwitansi online. Fotonya masih bisa dilengkapi kapan saja.',
+            ya: 'Ya, sudah diserahkan'
+          });
+          if (!ya) return;
+          const r = await global.App.kirim('order.tandaiSerah', { id: o.id });
+          if (r.success) { Z.Sheet.tutup(); await global.App.muatUlang(true); global.App.render(); }
+          return;
+        }
         if (k === 'fotoKembali') { Z.Sheet.tutup(); setTimeout(function () { formFotoSerah(o, 'kembali'); }, 240); return; }
         if (k === 'tautan') {
           const tautan = urlVerif(o.kode);
@@ -2606,6 +3729,25 @@
       '<img src="' + esc(url) + '" alt="Foto ' + esc(label) + '" loading="lazy" ' +
       'onerror="this.closest(\'a\').classList.add(\'gagal\')">' +
       '<span>' + esc(label) + '</span></a>';
+  }
+
+  /**
+   * Tahapan order di sisi pengelola, persis mengikuti aturan linimasa kwitansi:
+   * centang hanya untuk kejadian yang TERCATAT, bukan ditebak dari status.
+   */
+  function tahapOrder(o, s) {
+    const serah = !!o.serahPada || adaFotoSerah(o) || s === 'Selesai';
+    const kembali = !!o.kembaliPada || !!(o.pengembalian && o.pengembalian.foto) || s === 'Selesai';
+    const tahap = [
+      { n: 'Pesanan dibuat', ok: true },
+      { n: 'Unit diserahkan', ok: serah },
+      { n: 'Unit dikembalikan', ok: kembali },
+      { n: 'Sewa selesai', ok: s === 'Selesai' }
+    ];
+    return '<div class="tahap-ord">' + tahap.map(function (t) {
+      return '<span class="tahap-ord-i' + (t.ok ? ' ok' : '') + '">' +
+        (t.ok ? Z.Ikon('check', 11) : '<i></i>') + esc(t.n) + '</span>';
+    }).join('') + '</div>';
   }
 
   /** Apakah order ini sudah punya minimal satu foto serah terima? */
@@ -3248,8 +4390,41 @@
             '<div class="t-sm" style="margin-top:7px;line-height:1.7">' + esc(h.perlengkapan) + '</div></section>'
           : '') +
 
+        /* Jaminan identitas — hanya status dan jenisnya, tanpa gambar:
+           tautan kwitansi bisa diteruskan siapa pun. */
+        (h.jaminan
+          ? '<section class="kartu"><h3 class="t-judul" style="font-size:15px">Jaminan Identitas</h3>' +
+            '<div style="margin-top:8px">' +
+              U.baris('KTP', h.jaminan.ktp
+                ? '<span class="badge badge-ok">Diterima</span>'
+                : '<span class="badge badge-warn">Belum</span>') +
+              U.baris('Identitas pendukung', h.jaminan.pendukung
+                ? '<span class="badge badge-ok">' + esc(h.jaminan.jenisPendukung || 'Diterima') + '</span>'
+                : '<span class="badge badge-warn">Belum</span>') +
+            '</div>' +
+            '<div class="t-sm t-var" style="margin-top:8px;line-height:1.5">' +
+              esc(h.jaminan.catatan || '') + '</div></section>'
+          : '') +
+
+        /* Syarat & ketentuan, isinya diatur pemilik di Pengaturan */
+        (Array.isArray(h.syarat) && h.syarat.length
+          ? '<section class="kartu"><h3 class="t-judul" style="font-size:15px">Syarat &amp; Ketentuan</h3>' +
+            h.syarat.map(function (b2) {
+              return '<div class="sk-blok">' +
+                (b2.judul ? '<div class="sk-judul">' + esc(b2.judul) + '</div>' : '') +
+                (b2.poin.length
+                  ? '<ul class="sk-list">' + b2.poin.map(function (t) {
+                      return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>'
+                  : '') +
+              '</div>';
+            }).join('') +
+            '<div class="sk-setuju">' + Z.Ikon('check', 15) +
+            '<span>Dengan melakukan booking, penyewa dianggap telah membaca, memahami, ' +
+            'dan menyetujui seluruh ketentuan di atas.</span></div></section>'
+          : '') +
+
         '<section class="kartu"><div class="t-sm t-var" style="line-height:1.6;text-align:center">' +
-        'Nama penyewa sengaja disamarkan demi privasi.<br>Sidik dokumen: <code style="font-size:10px">' +
+        'Sidik dokumen: <code style="font-size:10px">' +
         esc((h.hash || '').slice(0, 24) || '-') + '</code></div></section>';
     },
     setelah: function (root, param) {

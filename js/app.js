@@ -280,6 +280,10 @@
 
     /* ---------------- Navigasi ---------------- */
     ke: function (rute, param) {
+      /* pushState tidak memicu hashchange maupun popstate, jadi penutup otomatis
+         milik Sheet tidak jalan di sini. Tanpa baris ini, berpindah halaman dari
+         dalam sebuah lembar meninggalkan scrim yang memblokir seluruh layar. */
+      if (Z.Sheet && Z.Sheet.el) Z.Sheet.tutup(true);
       App.rute = rute;
       App.param = param || {};
       App.cari = '';
@@ -433,6 +437,13 @@
       });
       Z.$$('[data-servis-unit]', root).forEach(function (el) {
         el.addEventListener('click', function (e) { e.stopPropagation(); Hal.servis.form(el.getAttribute('data-servis-unit')); });
+      });
+      Z.$$('[data-berkala-unit]', root).forEach(function (el) {
+        el.addEventListener('click', function (e) {
+          e.stopPropagation();
+          Z.Simpan.taruh('berkalaUnit', el.getAttribute('data-berkala-unit') || '');
+          App.ke('berkala');
+        });
       });
       const cari = Z.$('#kotakCari', root);
       if (cari) {

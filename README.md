@@ -5,6 +5,21 @@ keuangan, servis & pajak, laporan, dan notifikasi WhatsApp dalam satu tempat.
 
 Dirancang **mobile-first** — pemilik lebih sering membukanya dari HP.
 
+Modul yang menjawab kerja harian 50+ unit:
+
+* **Papan Ketersediaan** — kisi unit × tanggal seperti papan kamar hotel: ready, booking,
+  berjalan, servis, dan hari serah terima, langsung terbaca untuk tanggal mana pun.
+* **Riwayat Unit** — satu plat, satu halaman: siapa saja yang pernah menyewanya dan semua
+  catatan servisnya.
+* **Servis Berkala** — oli mesin, gardan, CVT, filter, kampas; interval km/hari diatur
+  sendiri, jatuh tempo diingatkan di Beranda, biayanya otomatis masuk buku kas.
+* **Jaminan 2 identitas** — KTP + satu identitas pendukung, diunggah dari galeri atau
+  dipotret langsung, dan **disalin ke tiap order** agar penyewa lama yang memperbarui
+  KTP tidak merusak bukti order lamanya.
+* **Galeri Identitas** & **Riwayat sewa per penyewa**.
+* **Kwitansi online** terpisah dari dashboard, dengan syarat & ketentuan yang bisa diubah
+  sendiri.
+
 ## Isi folder ini
 
 ```
@@ -14,7 +29,9 @@ js/config.js      ← SATU-SATUNYA berkas yang perlu Anda ubah
 js/core.js        util, format, penyimpanan lokal, lapisan API, toast, bottom-sheet, ikon
 js/ui.js          komponen: kartu KPI, badge, grafik SVG, peringkat
 js/pages.js       halaman Beranda, Order, Buat Order, Armada, Pelanggan
-js/pages2.js      halaman Keuangan, Servis, Laporan, Notifikasi, Pengaturan, Impor, Kwitansi
+js/pages2.js      Keuangan, Servis, Papan Ketersediaan, Riwayat Unit, Servis Berkala,
+                  Kalender, Galeri Foto, Galeri Identitas, Laporan, Notifikasi,
+                  Pengaturan, Impor, Kwitansi publik
 js/struk.js       mesin struk & resi thermal 58/80 mm (ESC/POS)
 js/vendor-qrcode.js  pembuat QR (MIT) — dipaketkan lokal agar jalan tanpa internet
 js/app.js         login PIN, router, navigasi, sinkronisasi data, tema

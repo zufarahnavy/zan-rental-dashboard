@@ -416,6 +416,13 @@
     perisai: '<path d="M12 3 5 6v6c0 4.2 3 7.8 7 9 4-1.2 7-4.8 7-9V6z"/><path d="m9.2 12 2 2 3.6-3.8"/>',
     kirim: '<path d="M21 3 3 10.5l7 2.5 2.5 7z"/><path d="m10 13 11-10"/>',
     salin: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+    tetes: '<path d="M12 2.7 6.9 9.4a6.6 6.6 0 1 0 10.2 0z"/>',
+    kisi: '<rect x="3" y="3" width="18" height="18" rx="2.5"/>' +
+      '<path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
+    kartu: '<rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/>' +
+      '<path d="M6 15h4"/>',
+    gambar: '<rect x="3" y="3" width="18" height="18" rx="2.5"/>' +
+      '<circle cx="8.5" cy="8.5" r="1.6"/><path d="m21 15-4.5-4.5L7 21"/>',
     tautan: '<path d="M10 13a5 5 0 0 0 7.07 0l3-3A5 5 0 0 0 13 3l-1.5 1.5"/>' +
       '<path d="M14 11a5 5 0 0 0-7.07 0l-3 3A5 5 0 0 0 11 21l1.5-1.5"/>',
     qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14h2v2h-2zM14 19h2v2h-2zM18 18h3v3h-3z" fill="currentColor" stroke="none"/>',
@@ -655,6 +662,14 @@
    * Cerminan hitungSewa_ di backend — keduanya harus memberi angka yang sama,
    * kalau tidak total di layar berbeda dengan yang tersimpan.
    */
+  const HARI_SINGKAT = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+  /** Nama hari singkat dari 'YYYY-MM-DD'. */
+  function hariSingkat(t) {
+    const a = String(t).split('-');
+    if (a.length !== 3) return '';
+    return HARI_SINGKAT[new Date(Number(a[0]), Number(a[1]) - 1, Number(a[2])).getDay()];
+  }
+
   function hitungSewa(hargaHari, hargaMinggu, paket, durasi) {
     const hari = Math.max(1, Math.round(num(durasi)));
     const hh = Math.max(0, num(hargaHari));
@@ -679,6 +694,7 @@
 
   global.ZAN = {
     $: $, $$: $$, esc: esc, num: num, rp: rp, rpSingkat: rpSingkat, ribuan: ribuan,
+    hariSingkat: hariSingkat,
     hitungSewa: hitungSewa,
     berkasLabel: berkasLabel, berkasOpsi: berkasOpsi, berkasLengkap: berkasLengkap,
     hariIni: hariIni, jamIni: jamIni, tglId: tglId, tglPendek: tglPendek, tglPanjang: tglPanjang,
